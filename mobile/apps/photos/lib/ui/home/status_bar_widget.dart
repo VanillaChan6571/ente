@@ -43,8 +43,9 @@ class _StatusBarWidgetState extends State<StatusBarWidget> {
   bool _isPausedDueToNetwork = false;
   bool _showStatus = false;
   bool _showErrorBanner = false;
-  bool _showMlBanner = !hasGrantedMLConsent &&
-      (isOfflineMode || flagService.hasSyncedAccountFlags()) &&
+  bool _showMlBanner =
+      !hasGrantedMLConsent &&
+      (isLocalGalleryMode || flagService.hasSyncedAccountFlags()) &&
       !localSettings.hasSeenMLEnablingBanner;
   Error? _syncError;
 
@@ -79,20 +80,22 @@ class _StatusBarWidgetState extends State<StatusBarWidget> {
         });
       }
     });
-    _notificationSubscription =
-        Bus.instance.on<NotificationEvent>().listen((event) {
+    _notificationSubscription = Bus.instance.on<NotificationEvent>().listen((
+      event,
+    ) {
       if (mounted) {
         _showMlBanner =
             !hasGrantedMLConsent && !localSettings.hasSeenMLEnablingBanner;
         setState(() {});
       }
     });
-    _christmasBannerSubscription =
-        Bus.instance.on<ChristmasBannerEvent>().listen((_) {
-      if (mounted) {
-        setState(() {});
-      }
-    });
+    _christmasBannerSubscription = Bus.instance
+        .on<ChristmasBannerEvent>()
+        .listen((_) {
+          if (mounted) {
+            setState(() {});
+          }
+        });
 
     super.initState();
   }
@@ -136,23 +139,23 @@ class _StatusBarWidgetState extends State<StatusBarWidget> {
                 ),
         ),
         _showErrorBanner
-            ? Divider(
-                height: 8,
-                color: getEnteColorScheme(context).strokeFaint,
-              )
+            ? Divider(height: 8, color: getEnteColorScheme(context).strokeFaint)
             : const SizedBox.shrink(),
         _showErrorBanner
             ? HeaderErrorWidget(error: _syncError)
             : const SizedBox.shrink(),
         _showMlBanner && !_showErrorBanner
             ? Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 2.0, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 2.0,
+                  vertical: 12,
+                ),
                 child: NotificationWidget(
                   startIcon: Icons.offline_bolt,
                   actionIcon: Icons.arrow_forward,
-                  text:
-                      AppLocalizations.of(context).enableMachineLearningBanner,
+                  text: AppLocalizations.of(
+                    context,
+                  ).enableMachineLearningBanner,
                   type: NotificationType.greenBanner,
                   mainTextStyle: darkTextTheme.smallMuted,
                   onTap: () async => {
@@ -167,8 +170,10 @@ class _StatusBarWidgetState extends State<StatusBarWidget> {
             : const SizedBox.shrink(),
         _showVerificationBanner()
             ? Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16.0,
+                  vertical: 12,
+                ),
                 child: NotificationWidget(
                   startIcon: Icons.error_outline,
                   actionIcon: Icons.arrow_forward,
@@ -232,7 +237,8 @@ class _SyncStatusWidgetState extends State<SyncStatusWidget> {
 
   @override
   Widget build(BuildContext context) {
-    final bool isNotOutdatedEvent = _event != null &&
+    final bool isNotOutdatedEvent =
+        _event != null &&
         (_event!.status == SyncStatus.completedBackup ||
             _event!.status == SyncStatus.completedFirstGalleryImport) &&
         (DateTime.now().microsecondsSinceEpoch - _event!.timestamp >
@@ -362,8 +368,9 @@ class SyncStatusCompletedWidget extends StatelessWidget {
                 ),
                 Padding(
                   padding: const EdgeInsets.only(left: 12),
-                  child:
-                      Text(AppLocalizations.of(context).allMemoriesPreserved),
+                  child: Text(
+                    AppLocalizations.of(context).allMemoriesPreserved,
+                  ),
                 ),
               ],
             ),

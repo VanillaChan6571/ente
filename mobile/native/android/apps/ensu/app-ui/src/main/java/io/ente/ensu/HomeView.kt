@@ -26,7 +26,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ModalBottomSheet
@@ -35,6 +34,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -52,6 +52,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import com.google.accompanist.navigation.animation.rememberAnimatedNavController
 import io.ente.ensu.auth.AuthFlowScreen
 import io.ente.ensu.chat.SessionDrawer
+import io.ente.ensu.components.ImageAttachmentPreviewDialog
 import io.ente.ensu.components.NativeChoiceDialog
 import io.ente.ensu.data.AdvancedSettingsDataStore
 import io.ente.ensu.data.auth.EnsuAuthService
@@ -64,10 +65,16 @@ import io.ente.ensu.domain.model.Attachment
 import io.ente.ensu.domain.model.AttachmentType
 import io.ente.ensu.domain.model.EnsuDefaults
 import io.ente.ensu.domain.model.LogEntry
+import io.ente.ensu.domain.model.MaxImageAttachmentsPerMessage
 import io.ente.ensu.domain.state.AppState
 import io.ente.ensu.domain.store.AppStore
 import io.ente.ensu.utils.EnsuFeatureFlags
+import io.ente.ensu.whatsnew.PendingWhatsNew
+import io.ente.ensu.whatsnew.WhatsNewDialog
+import io.ente.ensu.whatsnew.WhatsNewService
+import io.ente.labs.ensu_db.compressAttachmentImage
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -102,6 +109,9 @@ fun HomeView(
     var deleteSessionTarget by remember { mutableStateOf<io.ente.ensu.domain.model.ChatSession?>(null) }
     var showLogShareDialog by remember { mutableStateOf(false) }
     var showSignInComingSoon by remember { mutableStateOf(false) }
+    var imagePreviewAttachment by remember { mutableStateOf<Attachment?>(null) }
+    val whatsNewService = remember(context) { WhatsNewService(context.applicationContext) }
+    var pendingWhatsNew by remember { mutableStateOf<PendingWhatsNew?>(null) }
 
     val handleSignInRequest: () -> Unit = handle@{
         if (!EnsuFeatureFlags.enableSignIn) {
@@ -198,14 +208,23 @@ fun HomeView(
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
+    LaunchedEffect(whatsNewService) {
+        delay(600)
+        pendingWhatsNew = whatsNewService.getPendingWhatsNew()
+    }
+
     // Note: Drawer close is handled in navigation callbacks (onOpenSettings, onAccount, etc.)
     // to avoid race conditions with route changes during navigation transitions.
 
     val openDrawer: () -> Unit = { scope.launch { drawerState.open() } }
 
-    val handleAttachmentSelected: (AttachmentType) -> Unit = { type ->
+    val handleAttachmentSelected: (AttachmentType) -> Unit = handle@{ type ->
         when (type) {
             AttachmentType.Image -> {
+                val imageCount = appState.chat.attachments.count {
+                    it.type == AttachmentType.Image
+                }
+                if (imageCount >= MaxImageAttachmentsPerMessage) return@handle
                 imagePicker.launch("image/*")
             }
             AttachmentType.Document -> {
@@ -279,8 +298,22 @@ fun HomeView(
             onAttachmentDownloads = { showAttachmentDownloads = true },
             onShowLogShareDialog = { showLogShareDialog = true },
             onAttachmentSelected = handleAttachmentSelected,
-            onOpenAttachment = { attachment -> openAttachment(context, attachment) },
+            onOpenAttachment = { attachment ->
+                if (attachment.type == AttachmentType.Image) {
+                    imagePreviewAttachment = attachment
+                } else {
+                    openAttachment(context, attachment)
+                }
+            },
             onDeleteAccount = { openDeleteAccountEmail(context) }
+        )
+    }
+
+    imagePreviewAttachment?.let { attachment ->
+        ImageAttachmentPreviewDialog(
+            path = attachment.localPath,
+            contentDescription = attachment.name,
+            onDismiss = { imagePreviewAttachment = null }
         )
     }
 
@@ -318,6 +351,16 @@ fun HomeView(
             downloads = appState.chat.attachmentDownloads,
             onCancel = { store.cancelAttachmentDownload(it) },
             onDismiss = { showAttachmentDownloads = false }
+        )
+    }
+
+    pendingWhatsNew?.let { pending ->
+        WhatsNewDialog(
+            entries = pending.entries,
+            onDismiss = {
+                whatsNewService.markSeen()
+                pendingWhatsNew = null
+            }
         )
     }
 
@@ -422,6 +465,9 @@ private fun <I> rememberAttachmentPicker(
                 }
                 if (attachment != null) {
                     latestStore.addAttachment(attachment)
+                    if (type == AttachmentType.Image) {
+                        latestStore.prewarmImageInferenceIfDownloaded()
+                    }
                 } else {
                     latestStore.setAttachmentProcessing(false)
                 }
@@ -449,25 +495,49 @@ private fun buildAttachmentFromUri(
     val attachmentId = UUID.randomUUID().toString()
     val destination = File(attachmentsDir, attachmentId)
     return runCatching {
-        val inputStream = resolver.openInputStream(uri) ?: return@runCatching null
+        val finalName: String
 
-        inputStream.use { input ->
+        if (type == AttachmentType.Image) {
+            val inputStream = resolver.openInputStream(uri) ?: return@runCatching null
+            val originalBytes = inputStream.use { input -> input.readBytes() }
+            val compressedBytes = compressAttachmentImage(originalBytes)
             FileOutputStream(destination).use { output ->
-                input.copyTo(output)
+                output.write(compressedBytes)
             }
+            finalName = normalizedJpegAttachmentName(name ?: safeName)
+        } else {
+            val inputStream = resolver.openInputStream(uri) ?: return@runCatching null
+            inputStream.use { input ->
+                FileOutputStream(destination).use { output ->
+                    input.copyTo(output)
+                }
+            }
+            finalName = name ?: safeName
         }
 
         val finalSize = destination.length().takeIf { it > 0 } ?: size ?: 0L
 
         Attachment(
             id = attachmentId,
-            name = name ?: safeName,
+            name = finalName,
             sizeBytes = finalSize,
             type = type,
             localPath = destination.absolutePath,
             isUploading = false
         )
     }.getOrNull()
+}
+
+private fun normalizedJpegAttachmentName(name: String?): String {
+    val raw = name
+        ?.replace("\u0000", "")
+        ?.replace("\\", "/")
+        ?.substringAfterLast("/")
+        ?.trim()
+        ?.takeIf { it.isNotBlank() }
+        ?: "image"
+    val base = raw.substringBeforeLast(".", raw).ifBlank { "image" }
+    return "$base.jpg"
 }
 
 private fun openAttachment(context: Context, attachment: Attachment) {

@@ -1,5 +1,9 @@
 package io.ente.ensu.chat
 
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
@@ -31,13 +35,16 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import io.ente.ensu.designsystem.EnsuColor
 import io.ente.ensu.designsystem.EnsuSpacing
 import io.ente.ensu.domain.model.Attachment
@@ -66,7 +73,47 @@ fun ChatView(
     onOverflowCancel: () -> Unit
 ) {
     val density = LocalDensity.current
+    val context = LocalContext.current
     var inputBarHeightDp by remember { mutableStateOf(0.dp) }
+    val latestMessageText by rememberUpdatedState(chatState.messageText)
+    val latestOnMessageChange by rememberUpdatedState(onMessageChange)
+    val sessionKey = chatState.currentSessionId ?: "new-session"
+    val latestSessionKey by rememberUpdatedState(sessionKey)
+    var pendingVoiceSessionKey by remember { mutableStateOf<String?>(null) }
+    val voiceController = rememberVoiceTranscriptionController(
+        onTranscript = { transcript ->
+            latestOnMessageChange(appendVoiceTranscript(latestMessageText, transcript))
+        }
+    )
+
+    val editingMessage by remember(chatState.editingMessageId, chatState.messages) {
+        derivedStateOf {
+            chatState.editingMessageId?.let { editingId ->
+                chatState.messages.firstOrNull { it.id == editingId }
+            }
+        }
+    }
+    val canStartVoiceInput = !chatState.isGenerating &&
+        !chatState.isDownloading &&
+        !chatState.isAttachmentDownloadBlocked &&
+        editingMessage == null
+    val latestCanStartVoiceInput by rememberUpdatedState(canStartVoiceInput)
+
+    val microphonePermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        val requestedSessionKey = pendingVoiceSessionKey
+        pendingVoiceSessionKey = null
+        if (granted) {
+            if (requestedSessionKey != null) {
+                voiceController.startRecording {
+                    latestSessionKey == requestedSessionKey && latestCanStartVoiceInput
+                }
+            }
+        } else {
+            voiceController.onPermissionDenied()
+        }
+    }
 
     val showDownloadOnboarding by remember(
         chatState.isModelDownloaded,
@@ -118,14 +165,9 @@ fun ChatView(
         }
     }
 
-    val sessionKey = chatState.currentSessionId ?: "new-session"
-
-    val editingMessage by remember(chatState.editingMessageId, chatState.messages) {
-        derivedStateOf {
-            chatState.editingMessageId?.let { editingId ->
-                chatState.messages.firstOrNull { it.id == editingId }
-            }
-        }
+    LaunchedEffect(sessionKey) {
+        pendingVoiceSessionKey = null
+        voiceController.cancelActiveVoiceInput()
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -213,6 +255,26 @@ fun ChatView(
                     onAttachmentSelected = onAttachmentSelected,
                     onRemoveAttachment = onRemoveAttachment,
                     onCancelEdit = onCancelEdit,
+                    voiceInputState = voiceController.state,
+                    onVoiceInput = {
+                        if (voiceController.state.isRecording) {
+                            voiceController.stopAndTranscribe()
+                        } else {
+                            val hasMicrophonePermission = ContextCompat.checkSelfPermission(
+                                context,
+                                Manifest.permission.RECORD_AUDIO
+                            ) == PackageManager.PERMISSION_GRANTED
+                            if (canStartVoiceInput && hasMicrophonePermission) {
+                                val requestedSessionKey = sessionKey
+                                voiceController.startRecording {
+                                    latestSessionKey == requestedSessionKey && latestCanStartVoiceInput
+                                }
+                            } else if (canStartVoiceInput) {
+                                pendingVoiceSessionKey = sessionKey
+                                microphonePermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                            }
+                        }
+                    },
                     focusRequestId = focusRequestId
                 )
             }
@@ -263,4 +325,16 @@ fun ChatView(
             )
         }
     }
+}
+
+private fun appendVoiceTranscript(currentText: String, transcript: String): String {
+    val cleaned = transcript.trim()
+    if (cleaned.isBlank()) {
+        return currentText
+    }
+    val trimmedDraft = currentText.trimEnd()
+    if (trimmedDraft.isBlank()) {
+        return cleaned
+    }
+    return "$trimmedDraft $cleaned"
 }

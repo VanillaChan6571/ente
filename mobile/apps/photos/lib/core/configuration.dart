@@ -26,7 +26,6 @@ import "package:photos/db/ml/db.dart";
 import 'package:photos/db/trash_db.dart';
 import 'package:photos/db/upload_locks_db.dart';
 import "package:photos/events/app_mode_changed_event.dart";
-import "package:photos/events/endpoint_updated_event.dart";
 import 'package:photos/events/signed_in_event.dart';
 import 'package:photos/events/user_logged_out_event.dart';
 import 'package:photos/gateways/users/models/key_attributes.dart';
@@ -55,10 +54,6 @@ class Configuration {
   Configuration._privateConstructor();
 
   static final Configuration instance = Configuration._privateConstructor();
-  static const endpoint = String.fromEnvironment(
-    "endpoint",
-    defaultValue: kDefaultProductionEndpoint,
-  );
 
   static const emailKey = "email";
   static const foldersToBackUpKey = "folders_to_back_up";
@@ -74,7 +69,6 @@ class Configuration {
   static const userIDKey = "user_id";
   static const hasMigratedSecureStorageKey = "has_migrated_secure_storage";
   static const anonymousUserIDKey = "anonymous_user_id";
-  static const endPointKey = "endpoint";
   static final _logger = Logger("Configuration");
 
   String? _cachedToken;
@@ -125,15 +119,11 @@ class Configuration {
         _logger.info(
           "(for debugging) Token found, loading secure storage data",
         );
-        _key = await _secureStorage.read(
-          key: keyKey,
-        );
+        _key = await _secureStorage.read(key: keyKey);
         _logger.info(
           "(for debugging) Key loaded from secure storage, is null: ${_key == null}",
         );
-        _secretKey = await _secureStorage.read(
-          key: secretKeyKey,
-        );
+        _secretKey = await _secureStorage.read(key: secretKeyKey);
         _logger.info(
           "(for debugging) Secret Key loaded from secure storage, is null: ${_secretKey == null}",
         );
@@ -154,7 +144,7 @@ class Configuration {
         final PlatformException error = e;
         final bool isBadPaddingError =
             error.toString().contains('BadPaddingException') ||
-                (error.message ?? '').contains('BadPaddingException');
+            (error.message ?? '').contains('BadPaddingException');
         if (isBadPaddingError) {
           await logout(autoLogout: true);
           return;
@@ -210,9 +200,9 @@ class Configuration {
       if (SyncService.instance.isSyncInProgress()) {
         SyncService.instance.stopSync();
         try {
-          await SyncService.instance
-              .existingSync()
-              .timeout(const Duration(seconds: 5));
+          await SyncService.instance.existingSync().timeout(
+            const Duration(seconds: 5),
+          );
         } catch (e) {
           // ignore
         }
@@ -526,22 +516,6 @@ class Configuration {
     await setToken(CryptoUtil.bin2base64(token, urlSafe: true));
   }
 
-  String getHttpEndpoint() {
-    return _preferences.getString(endPointKey) ?? endpoint;
-  }
-
-  // isEnteProduction checks if the current endpoint is the default production
-  // endpoint. This is used to determine if the app is in production mode or
-  // not. The default production endpoint is set in the environment variable
-  bool isEnteProduction() {
-    return getHttpEndpoint() == kDefaultProductionEndpoint;
-  }
-
-  Future<void> setHttpEndpoint(String endpoint) async {
-    await _preferences.setString(endPointKey, endpoint);
-    Bus.instance.fire(EndpointUpdatedEvent());
-  }
-
   String? getToken() {
     _cachedToken ??= _preferences.getString(tokenKey);
     return _cachedToken;
@@ -554,7 +528,7 @@ class Configuration {
   Future<void> setToken(String token) async {
     _cachedToken = token;
     await _preferences.setString(tokenKey, token);
-    await localSettings.setAppMode(AppMode.online);
+    await localSettings.setAppMode(AppMode.enteGallery);
     Bus.instance.fire(AppModeChangedEvent());
     Bus.instance.fire(SignedInEvent());
   }

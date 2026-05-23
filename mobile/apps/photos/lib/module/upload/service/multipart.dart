@@ -6,7 +6,6 @@ import "package:ente_feature_flag/ente_feature_flag.dart";
 import "package:ente_pure_utils/ente_pure_utils.dart";
 import "package:flutter/foundation.dart";
 import "package:logging/logging.dart";
-import "package:photos/core/configuration.dart";
 import "package:photos/core/constants.dart";
 import "package:photos/core/errors.dart";
 import "package:photos/db/upload_locks_db.dart";
@@ -36,8 +35,9 @@ class MultiPartUploader {
     int collectionID,
     String encFileName,
   ) async {
-    final collectionKey =
-        CollectionsService.instance.getCollectionKey(collectionID);
+    final collectionKey = CollectionsService.instance.getCollectionKey(
+      collectionID,
+    );
     final result = await _db.getFileEncryptionData(
       localId,
       fileHash,
@@ -76,9 +76,9 @@ class MultiPartUploader {
 
   bool get _shouldUseCFUploadProxy =>
       !_featureFlagService.disableCFWorker &&
-      _featureFlagService.cloudflareUploadWorker &&
-      localSettings.isCFUploadProxyEnabled &&
-      Configuration.instance.isEnteProduction();
+      (localSettings.cfUploadProxyEnabled ??
+          _featureFlagService.cloudflareUploadWorker) &&
+      endpointConfig.isProduction;
 
   int calculatePartCount(int fileSize) {
     // If the feature flag is disabled, return 1
@@ -93,24 +93,17 @@ class MultiPartUploader {
     required int count,
     required int contentLength,
     required int partLength,
-    List<String>? partMd5s,
+    required List<String> partMd5s,
   }) async {
     try {
       // Expected number of parts for given content and part length
       final recomputedCount = (contentLength / partLength).ceil();
 
-      MultipartUploadURLs urls;
-      if (flagService.enableUploadV2 &&
-          partMd5s != null &&
-          partMd5s.isNotEmpty) {
-        urls = await _gateway.getMultipartUploadUrl(
-          contentLength: contentLength,
-          partLength: partLength,
-          partMd5s: partMd5s,
-        );
-      } else {
-        urls = await _gateway.getMultipartUploadUrls(count);
-      }
+      final urls = await _gateway.getMultipartUploadUrl(
+        contentLength: contentLength,
+        partLength: partLength,
+        partMd5s: partMd5s,
+      );
       // Validate server respected the requested count/segmentation
       if (urls.partsURLs.length != recomputedCount ||
           count != recomputedCount) {
@@ -143,13 +136,11 @@ class MultiPartUploader {
     String? fileMd5,
     List<String>? partMd5s,
   }) async {
-    final collectionKey =
-        CollectionsService.instance.getCollectionKey(collectionID);
-
-    final encryptedResult = CryptoUtil.encryptSync(
-      fileKey,
-      collectionKey,
+    final collectionKey = CollectionsService.instance.getCollectionKey(
+      collectionID,
     );
+
+    final encryptedResult = CryptoUtil.encryptSync(fileKey, collectionKey);
 
     await _db.createTrackUploadsEntry(
       localId,
@@ -331,9 +322,7 @@ class MultiPartUploader {
             i * partSize,
             isLastPart ? null : (i + 1) * partSize,
           ),
-          options: Options(
-            headers: headers,
-          ),
+          options: Options(headers: headers),
         );
 
         final eTag = useUploadProxy
@@ -381,12 +370,7 @@ class MultiPartUploader {
     final useUploadProxy = _shouldUseCFUploadProxy;
     final body = convertJs2Xml({
       'CompleteMultipartUpload': partEtags.entries
-          .map(
-            (e) => PartETag(
-              e.key + 1,
-              e.value,
-            ),
-          )
+          .map((e) => PartETag(e.key + 1, e.value))
           .toList(),
     }).replaceAll('"', '').replaceAll('&quot;', '');
 
@@ -401,10 +385,7 @@ class MultiPartUploader {
           headers: useUploadProxy ? {"UPLOAD-URL": completeURL} : null,
         ),
       );
-      await _db.updateTrackUploadStatus(
-        objectKey,
-        MultipartStatus.completed,
-      );
+      await _db.updateTrackUploadStatus(objectKey, MultipartStatus.completed);
     } catch (e) {
       Logger("MultipartUpload").severe("upload failed for key $objectKey}", e);
       rethrow;

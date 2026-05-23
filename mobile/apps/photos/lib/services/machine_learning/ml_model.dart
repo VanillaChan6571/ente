@@ -3,7 +3,7 @@ import "dart:io" show File, Platform;
 import "package:logging/logging.dart";
 import "package:onnx_dart/onnx_dart.dart";
 import "package:onnxruntime/onnxruntime.dart";
-import "package:photos/service_locator.dart" show isOfflineMode;
+import "package:photos/service_locator.dart" show isLocalGalleryMode;
 import "package:photos/services/machine_learning/onnx_env.dart";
 import "package:photos/services/remote_assets_service.dart";
 import "package:photos/utils/network_util.dart";
@@ -13,9 +13,11 @@ abstract class MlModel {
   static final Logger isolateLogger = Logger("MlModel");
   Logger get logger;
 
-  String get kModelBucketEndpoint => "https://models.ente.io/";
+  String get kModelBucketEndpoint => "https://models.ente.com/";
 
   String get modelRemotePath;
+
+  String get modelSha256;
 
   String get modelName;
 
@@ -37,17 +39,22 @@ abstract class MlModel {
   /// WARNING: If [downloadModel] was not first called, this method will download the model first using high bandwidth.
   Future<(String, String)> getModelNameAndPath() async {
     return _downloadModelLock.synchronized(() async {
-      final path =
-          await RemoteAssetsService.instance.getAssetPath(modelRemotePath);
+      final path = await RemoteAssetsService.instance.getAssetPath(
+        modelRemotePath,
+        expectedSha256: modelSha256,
+      );
       return (modelName, path);
     });
   }
 
   Future<String?> downloadModelSafe() async {
     if (await RemoteAssetsService.instance.hasAsset(modelRemotePath)) {
-      return await RemoteAssetsService.instance.getAssetPath(modelRemotePath);
+      return await RemoteAssetsService.instance.getAssetPath(
+        modelRemotePath,
+        expectedSha256: modelSha256,
+      );
     } else {
-      if (isOfflineMode || await canUseHighBandwidth()) {
+      if (isLocalGalleryMode || await canUseHighBandwidth()) {
         return await downloadModel();
       } else {
         logger.warning(
@@ -61,11 +68,20 @@ abstract class MlModel {
   Future<String> downloadModel([bool forceRefresh = false]) async {
     return _downloadModelLock.synchronized(() async {
       if (forceRefresh) {
-        final file = await RemoteAssetsService.instance
-            .getAssetIfUpdated(modelRemotePath);
-        return file!.path;
+        final file = await RemoteAssetsService.instance.getAssetIfUpdated(
+          modelRemotePath,
+          expectedSha256: modelSha256,
+        );
+        return file?.path ??
+            await RemoteAssetsService.instance.getAssetPath(
+              modelRemotePath,
+              expectedSha256: modelSha256,
+            );
       } else {
-        return await RemoteAssetsService.instance.getAssetPath(modelRemotePath);
+        return await RemoteAssetsService.instance.getAssetPath(
+          modelRemotePath,
+          expectedSha256: modelSha256,
+        );
       }
     });
   }
@@ -92,12 +108,10 @@ abstract class MlModel {
 
   // Note: The platform plugin requires a dedicated isolate for loading the model to ensure thread safety and performance isolation.
   // In contrast, the current FFI-based plugin leverages the session memory address for session management, which does not require a dedicated isolate.
-  static Future<int> loadModel(
-    String modelName,
-    String modelPath,
-  ) async {
-    isolateLogger
-        .info('Start loading $modelName (platformPlugin: $usePlatformPlugin)');
+  static Future<int> loadModel(String modelName, String modelPath) async {
+    isolateLogger.info(
+      'Start loading $modelName (platformPlugin: $usePlatformPlugin)',
+    );
     final time = DateTime.now();
     try {
       late int result;
@@ -145,9 +159,7 @@ abstract class MlModel {
       final sessionOptions = OrtSessionOptions()
         ..setInterOpNumThreads(1)
         ..setIntraOpNumThreads(1)
-        ..setSessionGraphOptimizationLevel(
-          GraphOptimizationLevel.ortEnableAll,
-        );
+        ..setSessionGraphOptimizationLevel(GraphOptimizationLevel.ortEnableAll);
       final session = OrtSession.fromFile(File(modelPath), sessionOptions);
       return session.address;
     } catch (e, s) {

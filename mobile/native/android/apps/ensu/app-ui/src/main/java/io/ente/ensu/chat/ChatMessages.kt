@@ -62,12 +62,14 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
 import io.ente.ensu.components.BranchSwitcher
+import io.ente.ensu.components.ImageAttachmentThumbnail
 import io.ente.ensu.designsystem.EnsuColor
 import io.ente.ensu.designsystem.EnsuCornerRadius
 import io.ente.ensu.designsystem.EnsuSpacing
 import io.ente.ensu.designsystem.EnsuTypography
 import io.ente.ensu.designsystem.HugeIcons
 import io.ente.ensu.domain.model.Attachment
+import io.ente.ensu.domain.model.AttachmentType
 import io.ente.ensu.domain.model.ChatMessage
 import io.ente.ensu.domain.model.MessageAuthor
 import io.ente.ensu.domain.util.formatBytes
@@ -127,7 +129,7 @@ internal fun MessageList(
     val haptic = rememberEnsuHaptics()
     var autoScrollEnabled by remember { mutableStateOf(true) }
     var isAutoScrolling by remember { mutableStateOf(false) }
-    var lastHapticLength by remember { mutableStateOf(0) }
+    var didPerformStreamingStartHaptic by remember { mutableStateOf(false) }
     var shouldJumpToBottomOnLoad by remember { mutableStateOf(true) }
     var wasAtBottomBeforeResize by remember { mutableStateOf(true) }
     var lastViewportHeight by remember { mutableStateOf(0) }
@@ -150,12 +152,14 @@ internal fun MessageList(
     val streamingAnchorId = if (isGenerating) streamingParentId else null
 
     val lastMessage = messages.lastOrNull()
-    LaunchedEffect(isGenerating, lastMessage?.id) {
+    LaunchedEffect(isGenerating, streamingParentId) {
         if (isGenerating) {
             autoScrollEnabled = true
-            lastHapticLength = 0
+            didPerformStreamingStartHaptic = false
         }
+    }
 
+    LaunchedEffect(lastMessage?.id) {
         if (lastMessage == null) {
             lastUserMessageId = null
         } else if (lastMessage.author == MessageAuthor.User && lastMessage.id != lastUserMessageId) {
@@ -202,11 +206,10 @@ internal fun MessageList(
     }
 
     LaunchedEffect(streamingResponse, isGenerating) {
-        if (!isGenerating) return@LaunchedEffect
-        val length = streamingResponse.length
-        if (length > lastHapticLength) {
+        if (!isGenerating || didPerformStreamingStartHaptic) return@LaunchedEffect
+        if (hasVisibleStreamingContent(streamingResponse)) {
             haptic.perform(HapticFeedbackType.TextHandleMove)
-            lastHapticLength = length
+            didPerformStreamingStartHaptic = true
         }
     }
 
@@ -415,7 +418,7 @@ private fun DownloadOnboarding(
                 }
                 Text(
                     text = statusText ?: "Downloading...",
-                    style = EnsuTypography.body,
+                    style = EnsuTypography.body.copy(fontFeatureSettings = "tnum"),
                     color = EnsuColor.textMuted(),
                     textAlign = TextAlign.Center
                 )
@@ -507,13 +510,27 @@ private fun UserMessageBubble(
                 verticalArrangement = Arrangement.spacedBy(EnsuSpacing.sm.dp)
             ) {
                 message.attachments.forEach { attachment ->
-                    io.ente.ensu.components.AttachmentChip(
-                        name = attachment.name,
-                        size = attachment.sizeBytes.formattedFileSize(),
-                        iconRes = HugeIcons.Attachment01Icon,
-                        isUploading = attachment.isUploading,
-                        onClick = { onOpenAttachment(attachment) }
-                    )
+                    if (attachment.type == AttachmentType.Image && attachment.localPath != null) {
+                        ImageAttachmentThumbnail(
+                            path = attachment.localPath,
+                            contentDescription = attachment.name,
+                            width = 164.dp,
+                            height = 124.dp,
+                            portraitWidth = 124.dp,
+                            portraitHeight = 164.dp,
+                            squareSize = 140.dp,
+                            isUploading = attachment.isUploading,
+                            onClick = { onOpenAttachment(attachment) }
+                        )
+                    } else {
+                        io.ente.ensu.components.AttachmentChip(
+                            name = attachment.name,
+                            size = attachment.sizeBytes.formattedFileSize(),
+                            iconRes = HugeIcons.Attachment01Icon,
+                            isUploading = attachment.isUploading,
+                            onClick = { onOpenAttachment(attachment) }
+                        )
+                    }
                 }
             }
             Spacer(modifier = Modifier.height(EnsuSpacing.sm.dp))
@@ -822,6 +839,13 @@ private fun stripHiddenMessageParts(text: String): String {
         .replace(Regex("<think>[\\s\\S]*?</think>"), "")
         .replace(Regex("<todo_list>[\\s\\S]*?</todo_list>"), "")
         .trim()
+}
+
+private fun hasVisibleStreamingContent(text: String): Boolean {
+    return stripHiddenMessageParts(text)
+        .replace(Regex("<think>[\\s\\S]*"), "")
+        .replace(Regex("<todo_list>[\\s\\S]*"), "")
+        .isNotBlank()
 }
 
 @Composable

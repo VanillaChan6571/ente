@@ -51,7 +51,7 @@ class AlbumHomeWidgetService {
   void _listenToLocalPhotoUpdates() {
     Bus.instance.on<LocalPhotosUpdatedEvent>().listen((event) async {
       if (event.type != EventType.hide ||
-          isOfflineMode ||
+          isLocalGalleryMode ||
           !Configuration.instance.hasConfiguredAccount()) {
         return;
       }
@@ -195,12 +195,10 @@ class AlbumHomeWidgetService {
     return albums;
   }
 
-  Future<void> onLaunchFromWidget(
-    int fileId,
-    int collectionId,
-  ) async {
-    final collection =
-        CollectionsService.instance.getCollectionByID(collectionId);
+  Future<void> onLaunchFromWidget(int fileId, int collectionId) async {
+    final collection = CollectionsService.instance.getCollectionByID(
+      collectionId,
+    );
     if (collection == null) {
       _logger.warning(
         "Cannot launch widget: collection with ID $collectionId not found",
@@ -212,13 +210,12 @@ class AlbumHomeWidgetService {
     final thumbnail = await CollectionsService.instance.getCover(collection);
     AppNavigationService.instance
         .pushPage(
-          CollectionPage(
-            CollectionWithThumbnail(collection, thumbnail),
-          ),
+          CollectionPage(CollectionWithThumbnail(collection, thumbnail)),
         )
         .ignore();
-    final getAllFilesCollection =
-        await FilesDB.instance.getAllFilesCollection(collection.id);
+    final getAllFilesCollection = await FilesDB.instance.getAllFilesCollection(
+      collection.id,
+    );
 
     // Then open the specific file
     final file = await FilesDB.instance.getFile(fileId);
@@ -265,8 +262,8 @@ class AlbumHomeWidgetService {
 
   Future<bool> _hasAnyBlockers([bool isBg = false]) async {
     // Check if first import is completed
-    final hasCompletedFirstImport =
-        LocalSyncService.instance.hasCompletedFirstImportOrBypassed();
+    final hasCompletedFirstImport = LocalSyncService.instance
+        .hasCompletedFirstImportOrBypassed();
     if (!hasCompletedFirstImport) {
       return true;
     }
@@ -310,8 +307,9 @@ class AlbumHomeWidgetService {
 
       final rawUploadedFileID =
           metadata[HomeWidgetService.UPLOADED_FILE_ID_KEY];
-      final uploadedFileID =
-          rawUploadedFileID is num ? rawUploadedFileID.toInt() : null;
+      final uploadedFileID = rawUploadedFileID is num
+          ? rawUploadedFileID.toInt()
+          : null;
       if (uploadedFileID != null &&
           hiddenUploadedIDs.contains(uploadedFileID)) {
         return true;
@@ -335,9 +333,7 @@ class AlbumHomeWidgetService {
         return decoded;
       }
       if (decoded is Map) {
-        return decoded.map(
-          (key, value) => MapEntry(key.toString(), value),
-        );
+        return decoded.map((key, value) => MapEntry(key.toString(), value));
       }
       return null;
     }
@@ -347,9 +343,7 @@ class AlbumHomeWidgetService {
     }
 
     if (data is Map) {
-      return data.map(
-        (key, value) => MapEntry(key.toString(), value),
-      );
+      return data.map((key, value) => MapEntry(key.toString(), value));
     }
 
     return null;
@@ -400,8 +394,8 @@ class AlbumHomeWidgetService {
       if (isBg) {
         await FavoritesService.instance.initFav();
       }
-      final favoriteId =
-          await FavoritesService.instance.getFavoriteCollectionID();
+      final favoriteId = await FavoritesService.instance
+          .getFavoriteCollectionID();
       if (favoriteId != null) {
         await updateSelectedAlbums([favoriteId.toString()]);
         return [favoriteId];
@@ -448,15 +442,18 @@ class AlbumHomeWidgetService {
     for (final albumId in selectedAlbumIds) {
       final collection = CollectionsService.instance.getCollectionByID(albumId);
       if (collection != null) {
-        final allFiles =
-            await FilesDB.instance.getAllFilesCollection(collection.id);
+        final allFiles = await FilesDB.instance.getAllFilesCollection(
+          collection.id,
+        );
         final files = allFiles.where((file) {
           final uploadedID = file.uploadedFileID;
           return uploadedID == null || !hiddenUploadIDs.contains(uploadedID);
         }).toList();
         if (files.isNotEmpty) {
-          albumsWithFiles[collection.id] =
-              (collection.decryptedName ?? "Album", files);
+          albumsWithFiles[collection.id] = (
+            collection.decryptedName ?? "Album",
+            files,
+          );
         }
       }
     }
@@ -543,16 +540,16 @@ class AlbumHomeWidgetService {
 
       final renderResult = await HomeWidgetService.instance
           .renderFile(
-        randomAlbumFile,
-        "albums_widget_$renderedCount",
-        albumName,
-        albumId.toString(),
-        uploadedFileID: randomAlbumFile.uploadedFileID,
-      )
+            randomAlbumFile,
+            "albums_widget_$renderedCount",
+            albumName,
+            albumId.toString(),
+            uploadedFileID: randomAlbumFile.uploadedFileID,
+          )
           .catchError((e, stackTrace) {
-        _logger.severe("Error rendering widget", e, stackTrace);
-        return null;
-      });
+            _logger.severe("Error rendering widget", e, stackTrace);
+            return null;
+          });
 
       if (renderResult != null) {
         // Check for blockers again before continuing
@@ -565,9 +562,7 @@ class AlbumHomeWidgetService {
 
         // Show update toast after first item is rendered
         if (renderedCount == 1) {
-          await _refreshWidget(
-            message: "First album fetched, updating widget",
-          );
+          await _refreshWidget(message: "First album fetched, updating widget");
           await updateAlbumsStatus(WidgetStatus.syncedPartially);
         }
 

@@ -33,16 +33,17 @@ class SemanticSearchService {
   final LRUMap<String, List<double>> _queryEmbeddingCache = LRUMap(20);
   static const kMinimumSimilarityThreshold = 0.175;
   MLDataDB get _mlDataDB =>
-      isOfflineMode ? MLDataDB.offlineInstance : MLDataDB.instance;
-  ClipVectorDB get _vectorDB =>
-      isOfflineMode ? ClipVectorDB.offlineInstance : ClipVectorDB.instance;
+      isLocalGalleryMode ? MLDataDB.localGalleryInstance : MLDataDB.instance;
+  ClipVectorDB get _vectorDB => isLocalGalleryMode
+      ? ClipVectorDB.localGalleryInstance
+      : ClipVectorDB.instance;
 
   bool _hasInitialized = false;
   bool _textModelIsLoaded = false;
 
   final _cacheLock = Lock();
   bool _imageEmbeddingsAreCached = false;
-  bool? _cachedEmbeddingsOffline;
+  bool? _cachedEmbeddingsLocalGallery;
   Timer? _embeddingsCacheTimer;
   final Duration _embeddingsCacheDuration = const Duration(seconds: 60);
   static const Duration _vectorDbMigrationDelay = Duration(seconds: 10);
@@ -174,10 +175,10 @@ class SemanticSearchService {
     return _cacheLock.synchronized(() async {
       _resetInactivityTimer();
       if (_imageEmbeddingsAreCached) {
-        if (_cachedEmbeddingsOffline != isOfflineMode) {
+        if (_cachedEmbeddingsLocalGallery != isLocalGalleryMode) {
           await MLComputer.instance.clearImageEmbeddingsCache();
           _imageEmbeddingsAreCached = false;
-          _cachedEmbeddingsOffline = null;
+          _cachedEmbeddingsLocalGallery = null;
         } else {
           return;
         }
@@ -195,7 +196,7 @@ class SemanticSearchService {
         cacheRustExact: _shouldUseRustExactSearch,
       );
       _imageEmbeddingsAreCached = true;
-      _cachedEmbeddingsOffline = isOfflineMode;
+      _cachedEmbeddingsLocalGallery = isLocalGalleryMode;
       return;
     });
   }
@@ -236,19 +237,20 @@ class SemanticSearchService {
       fileIDToScoreMap[result.id] = result.score;
     }
 
-    if (isOfflineMode) {
-      return _getOfflineMatchingFiles(
+    if (isLocalGalleryMode) {
+      return _getLocalGalleryMatchingFiles(
         queryResults,
         fileIDToScoreMap,
         showThreshold,
       );
     }
 
-    final filesMap = await FilesDB.instance
-        .getFileIDToFileFromIDs(queryResults.map((e) => e.id).toList());
+    final filesMap = await FilesDB.instance.getFileIDToFileFromIDs(
+      queryResults.map((e) => e.id).toList(),
+    );
 
-    final ignoredCollections =
-        CollectionsService.instance.getHiddenCollectionIds();
+    final ignoredCollections = CollectionsService.instance
+        .getHiddenCollectionIds();
 
     final deletedEntries = <int>[];
     final results = <EnteFile>[];
@@ -277,7 +279,7 @@ class SemanticSearchService {
     return results;
   }
 
-  Future<List<EnteFile>> _getOfflineMatchingFiles(
+  Future<List<EnteFile>> _getLocalGalleryMatchingFiles(
     List<QueryResult> queryResults,
     Map<int, double> fileIDToScoreMap,
     bool showThreshold,
@@ -286,8 +288,8 @@ class SemanticSearchService {
       queryResults.map((e) => e.id),
     );
     final allFiles = await SearchService.instance.getAllFilesForSearch();
-    final ignoredCollections =
-        CollectionsService.instance.getHiddenCollectionIds();
+    final ignoredCollections = CollectionsService.instance
+        .getHiddenCollectionIds();
     final localIdToFile = <String, EnteFile>{};
     for (final file in allFiles) {
       final localId = file.localID;
@@ -333,8 +335,9 @@ class SemanticSearchService {
       final query = entry.key;
       final score = entry.value;
       // Use cache service instead of _getTextEmbedding
-      final textEmbedding =
-          await textEmbeddingsCacheService.getEmbedding(query);
+      final textEmbedding = await textEmbeddingsCacheService.getEmbedding(
+        query,
+      );
       textEmbeddings[query] = textEmbedding;
       minimumSimilarityMap[query] = score;
     }
@@ -437,11 +440,11 @@ class SemanticSearchService {
     if (_shouldUseRustExactSearch) {
       final startTime = DateTime.now();
       try {
-        final queryResults =
-            await MLComputer.instance.computeBulkSimilaritiesWithRust(
-          textQueryToEmbeddingMap,
-          minimumSimilarityMap,
-        );
+        final queryResults = await MLComputer.instance
+            .computeBulkSimilaritiesWithRust(
+              textQueryToEmbeddingMap,
+              minimumSimilarityMap,
+            );
         final endTime = DateTime.now();
         _logger.info(
           "computingSimilarities (rust simsimd exact) took for ${textQueryToEmbeddingMap.length} queries " +
@@ -461,11 +464,9 @@ class SemanticSearchService {
     }
 
     final startTime = DateTime.now();
-    final Map<String, List<QueryResult>> queryResults =
-        await MLComputer.instance.computeBulkSimilarities(
-      textQueryToEmbeddingMap,
-      minimumSimilarityMap,
-    );
+    final Map<String, List<QueryResult>> queryResults = await MLComputer
+        .instance
+        .computeBulkSimilarities(textQueryToEmbeddingMap, minimumSimilarityMap);
     final endTime = DateTime.now();
     _logger.info(
       "computingSimilarities (dot-product) took for ${textQueryToEmbeddingMap.length} queries " +

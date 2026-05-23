@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:collection/collection.dart';
 import 'package:ente_pure_utils/ente_pure_utils.dart';
 import 'package:flutter/material.dart';
@@ -33,8 +35,9 @@ class ShareCollectionPage extends StatefulWidget {
 
 class _ShareCollectionPageState extends State<ShareCollectionPage> {
   late List<User?> _sharees;
-  final CollectionActions collectionActions =
-      CollectionActions(CollectionsService.instance);
+  final CollectionActions collectionActions = CollectionActions(
+    CollectionsService.instance,
+  );
   final GlobalKey sendLinkButtonKey = GlobalKey();
   bool _redirectedToParticipants = false;
 
@@ -48,10 +51,7 @@ class _ShareCollectionPageState extends State<ShareCollectionPage> {
         ),
       );
     } else {
-      await routeToPage(
-        context,
-        AlbumParticipantsPage(widget.collection),
-      );
+      await routeToPage(context, AlbumParticipantsPage(widget.collection));
     }
     if (mounted) {
       setState(() => {});
@@ -70,10 +70,7 @@ class _ShareCollectionPageState extends State<ShareCollectionPage> {
           if (!mounted) {
             return;
           }
-          replacePage(
-            context,
-            AlbumParticipantsPage(widget.collection),
-          );
+          replacePage(context, AlbumParticipantsPage(widget.collection));
         });
       } else {
         _redirectedToParticipants = true;
@@ -87,17 +84,15 @@ class _ShareCollectionPageState extends State<ShareCollectionPage> {
     final children = <Widget>[];
     children.add(
       MenuSectionTitle(
-        title: AppLocalizations.of(context)
-            .shareWithPeopleSectionTitle(numberOfPeople: _sharees.length),
+        title: AppLocalizations.of(
+          context,
+        ).shareWithPeopleSectionTitle(numberOfPeople: _sharees.length),
         iconData: Icons.workspaces,
       ),
     );
 
     children.add(
-      EmailItemWidget(
-        widget.collection,
-        onTap: _navigateToManageUser,
-      ),
+      EmailItemWidget(widget.collection, onTap: _navigateToManageUser),
     );
 
     if (canManageParticipants) {
@@ -142,17 +137,18 @@ class _ShareCollectionPageState extends State<ShareCollectionPage> {
           isTopBorderRadiusRemoved: true,
           isBottomBorderRadiusRemoved: true,
           onTap: () async {
-            // ignore: unawaited_futures
-            routeToPage(
-              context,
-              AddParticipantPage(
-                [widget.collection],
-                const [ActionTypesToShow.addCollaborator],
-              ),
-            ).then(
-              (value) => {
-                if (mounted) {setState(() => {})},
-              },
+            unawaited(
+              routeToPage(
+                context,
+                AddParticipantPage(
+                  [widget.collection],
+                  const [ActionTypesToShow.addCollaborator],
+                ),
+              ).then((value) {
+                if (mounted) {
+                  setState(() {});
+                }
+              }),
             );
           },
         ),
@@ -198,9 +194,7 @@ class _ShareCollectionPageState extends State<ShareCollectionPage> {
 
     if (isOwner) {
       children.addAll([
-        const SizedBox(
-          height: 24,
-        ),
+        const SizedBox(height: 24),
         MenuSectionTitle(
           title: hasUrl
               ? AppLocalizations.of(context).publicLinkEnabled
@@ -216,36 +210,35 @@ class _ShareCollectionPageState extends State<ShareCollectionPage> {
           ),
         );
 
-        children.addAll(
-          [
-            DividerWidget(
-              dividerType: DividerType.menu,
-              bgColor: getEnteColorScheme(context).fillFaint,
+        children.addAll([
+          DividerWidget(
+            dividerType: DividerType.menu,
+            bgColor: getEnteColorScheme(context).fillFaint,
+          ),
+          MenuItemWidget(
+            captionedTextWidget: CaptionedTextWidget(
+              title: AppLocalizations.of(context).manageLink,
+              makeTextBold: true,
             ),
-            MenuItemWidget(
-              captionedTextWidget: CaptionedTextWidget(
-                title: AppLocalizations.of(context).manageLink,
-                makeTextBold: true,
-              ),
-              leadingIcon: Icons.link,
-              trailingIcon: Icons.navigate_next,
-              menuItemColor: getEnteColorScheme(context).fillFaint,
-              trailingIconIsMuted: true,
-              onTap: () async {
-                // ignore: unawaited_futures
+            leadingIcon: Icons.link,
+            trailingIcon: Icons.navigate_next,
+            menuItemColor: getEnteColorScheme(context).fillFaint,
+            trailingIconIsMuted: true,
+            onTap: () async {
+              unawaited(
                 routeToPage(
                   context,
                   ManageSharedLinkWidget(collection: widget.collection),
-                ).then(
-                  (value) => {
-                    if (mounted) {setState(() => {})},
-                  },
-                );
-              },
-              isTopBorderRadiusRemoved: true,
-            ),
-          ],
-        );
+                ).then((value) {
+                  if (mounted) {
+                    setState(() {});
+                  }
+                }),
+              );
+            },
+            isTopBorderRadiusRemoved: true,
+          ),
+        ]);
       } else {
         children.add(
           MenuItemWidget(
@@ -257,8 +250,10 @@ class _ShareCollectionPageState extends State<ShareCollectionPage> {
             menuItemColor: getEnteColorScheme(context).fillFaint,
             showOnlyLoadingState: true,
             onTap: () async {
-              final bool result =
-                  await collectionActions.enableUrl(context, widget.collection);
+              final bool result = await collectionActions.enableUrl(
+                context,
+                widget.collection,
+              );
               if (result && mounted) {
                 setState(() => {});
               }
@@ -273,9 +268,7 @@ class _ShareCollectionPageState extends State<ShareCollectionPage> {
           );
         }
         children.addAll([
-          const SizedBox(
-            height: 24,
-          ),
+          const SizedBox(height: 24),
           MenuSectionTitle(
             title: AppLocalizations.of(context).collectPhotos,
             iconData: Icons.public,
@@ -301,8 +294,9 @@ class _ShareCollectionPageState extends State<ShareCollectionPage> {
           ),
           _sharees.isEmpty
               ? MenuSectionDescriptionWidget(
-                  content:
-                      AppLocalizations.of(context).collabLinkSectionDescription,
+                  content: AppLocalizations.of(
+                    context,
+                  ).collabLinkSectionDescription,
                 )
               : const SizedBox.shrink(),
         ]);
@@ -313,8 +307,9 @@ class _ShareCollectionPageState extends State<ShareCollectionPage> {
       appBar: AppBar(
         title: Text(
           widget.collection.displayName,
-          style:
-              Theme.of(context).textTheme.headlineSmall?.copyWith(fontSize: 16),
+          style: Theme.of(
+            context,
+          ).textTheme.headlineSmall?.copyWith(fontSize: 16),
         ),
         elevation: 0,
         centerTitle: false,
@@ -323,8 +318,10 @@ class _ShareCollectionPageState extends State<ShareCollectionPage> {
         child: ListBody(
           children: <Widget>[
             Padding(
-              padding:
-                  const EdgeInsets.symmetric(vertical: 4.0, horizontal: 16),
+              padding: const EdgeInsets.symmetric(
+                vertical: 4.0,
+                horizontal: 16,
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: children,
@@ -341,11 +338,7 @@ class EmailItemWidget extends StatelessWidget {
   final Collection collection;
   final Function? onTap;
 
-  const EmailItemWidget(
-    this.collection, {
-    this.onTap,
-    super.key,
-  });
+  const EmailItemWidget(this.collection, {this.onTap, super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -358,9 +351,7 @@ class EmailItemWidget extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.start,
         children: [
           MenuItemWidget(
-            captionedTextWidget: CaptionedTextWidget(
-              title: resolvedName,
-            ),
+            captionedTextWidget: CaptionedTextWidget(title: resolvedName),
             leadingIconWidget: UserAvatarWidget(
               collection.getSharees().first,
               thumbnailView: false,
@@ -396,7 +387,7 @@ class EmailItemWidget extends StatelessWidget {
                     sharees: collection.getSharees(),
                     padding: const EdgeInsets.all(0),
                     limitCountTo: 10,
-                    type: AvatarType.md,
+                    type: AvatarType.medium,
                     removeBorder: false,
                   ),
                 ),

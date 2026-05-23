@@ -39,13 +39,14 @@ class ChangeLogStrings {
 
   static ChangeLogStrings? maybeForLocale(
     Locale locale, {
-    bool isOffline = false,
+    bool isLocalGallery = false,
   }) {
     final key = locale.countryCode != null && locale.countryCode!.isNotEmpty
         ? '${locale.languageCode}_${locale.countryCode}'
         : locale.languageCode;
-    final translations = isOffline ? _offlineTranslations : _translations;
-    final strings = translations[key] ??
+    final translations = isLocalGallery ? _offlineTranslations : _translations;
+    final strings =
+        translations[key] ??
         translations[locale.languageCode] ??
         translations['en'];
 
@@ -57,247 +58,158 @@ class ChangeLogStrings {
 
   static bool hasContentForLocale(
     Locale locale, {
-    bool isOffline = false,
+    bool isLocalGallery = false,
   }) {
-    return maybeForLocale(
-          locale,
-          isOffline: isOffline,
-        ) !=
-        null;
+    return maybeForLocale(locale, isLocalGallery: isLocalGallery) != null;
   }
 
   static const Map<String, ChangeLogStrings> _translations = {
     'en': ChangeLogStrings(
-      title1: 'Memories Improvements',
+      title1: 'Photo picker for 3rd party apps',
       desc1:
-          'We have shipped a bunch of improvements in our memories system, including surfacing better memories with other people, detecting your past trips, and surfacing recent photos from last week and last month.',
+          "Want to share a photo on WhatsApp or Signal, but couldn't select from Ente Photos? Got you covered! We have added support for selecting photos to attach to third-party apps.",
+      title2: 'View camera photos in Ente',
+      desc2:
+          'On supported devices, you can now tap the thumbnail in your Camera app to open the photo directly in Ente Photos. One less hop between snapping a shot and seeing it where you want it.',
     ),
     'cs': ChangeLogStrings(
-      title1: 'Vylepšení vzpomínek',
+      title1: 'Výběr fotek pro aplikace třetích stran',
       desc1:
-          'Přinášíme řadu vylepšení systému vzpomínek, včetně lepšího zobrazování společných momentů s blízkými, rozpoznávání vašich minulých cest a zobrazování nedávných fotek z minulého týdne a minulého měsíce.',
+          'Chcete sdílet fotku na WhatsAppu nebo Signalu, ale nemohli jste ji vybrat z Ente Photos? Máme to vyřešené! Přidali jsme podporu pro výběr fotek, které můžete připojit v aplikacích třetích stran.',
+      title2: 'Prohlížejte fotky z fotoaparátu v Ente',
+      desc2:
+          'Na podporovaných zařízeních teď můžete klepnout na náhled v aplikaci Fotoaparát a otevřít fotku přímo v Ente Photos. O jeden krok méně mezi pořízením snímku a jeho zobrazením tam, kde ho chcete mít.',
     ),
     'de': ChangeLogStrings(
-      title1: 'Verbesserungen bei Erinnerungen',
+      title1: 'Fotoauswahl für Drittanbieter-Apps',
       desc1:
-          'Wir haben eine Reihe von Verbesserungen an unserem Erinnerungssystem veröffentlicht, darunter bessere Erinnerungen mit anderen Personen, das Erkennen Ihrer vergangenen Reisen sowie aktuelle Fotos von letzter Woche und letztem Monat.',
+          'Möchten Sie ein Foto in WhatsApp oder Signal teilen, konnten es aber nicht aus Ente Photos auswählen? Das ist jetzt möglich! Wir haben Unterstützung hinzugefügt, damit Sie Fotos zum Anhängen in Drittanbieter-Apps auswählen können.',
+      title2: 'Kamerafotos in Ente ansehen',
+      desc2:
+          'Auf unterstützten Geräten können Sie jetzt in Ihrer Kamera-App auf die Miniaturansicht tippen, um das Foto direkt in Ente Photos zu öffnen. Ein Schritt weniger zwischen dem Aufnehmen und dem Anzeigen dort, wo Sie es sehen möchten.',
     ),
     'es': ChangeLogStrings(
-      title1: 'Mejoras en Recuerdos',
+      title1: 'Selector de fotos para apps de terceros',
       desc1:
-          'Hemos lanzado varias mejoras en nuestro sistema de recuerdos, incluyendo mejores recuerdos con otras personas, la detección de tus viajes pasados y la aparición de fotos recientes de la semana pasada y del mes pasado.',
+          '¿Quieres compartir una foto en WhatsApp o Signal, pero no podías seleccionarla desde Ente Photos? ¡Ya está cubierto! Hemos añadido soporte para seleccionar fotos y adjuntarlas en apps de terceros.',
+      title2: 'Ver fotos de la cámara en Ente',
+      desc2:
+          'En dispositivos compatibles, ahora puedes tocar la miniatura en tu app de Cámara para abrir la foto directamente en Ente Photos. Un paso menos entre tomar la foto y verla donde quieres.',
     ),
     'fr': ChangeLogStrings(
-      title1: 'Améliorations des souvenirs',
+      title1: 'Sélecteur de photos pour les apps tierces',
       desc1:
-          'Nous avons déployé de nombreuses améliorations de notre système de souvenirs, notamment de meilleurs souvenirs avec d\'autres personnes, la détection de vos voyages passés et l\'affichage de photos récentes de la semaine dernière et du mois dernier.',
+          'Vous voulez partager une photo sur WhatsApp ou Signal, mais vous ne pouviez pas la sélectionner depuis Ente Photos ? C’est désormais possible ! Nous avons ajouté la prise en charge de la sélection de photos à joindre dans des apps tierces.',
+      title2: 'Voir les photos de l’appareil photo dans Ente',
+      desc2:
+          'Sur les appareils compatibles, vous pouvez désormais toucher la miniature dans votre app Appareil photo pour ouvrir la photo directement dans Ente Photos. Une étape de moins entre la prise de vue et l’affichage là où vous le souhaitez.',
     ),
     'it': ChangeLogStrings(
-      title1: 'Miglioramenti ai ricordi',
+      title1: 'Selettore foto per app di terze parti',
       desc1:
-          'Abbiamo introdotto diversi miglioramenti al nostro sistema dei ricordi, tra cui la possibilità di rivivere momenti condivisi con altre persone, il rilevamento dei tuoi viaggi passati e la comparsa di foto recenti della scorsa settimana e del mese scorso.',
+          'Vuoi condividere una foto su WhatsApp o Signal, ma non riuscivi a selezionarla da Ente Photos? Ci abbiamo pensato noi! Abbiamo aggiunto il supporto per selezionare foto da allegare alle app di terze parti.',
+      title2: 'Visualizza le foto della fotocamera in Ente',
+      desc2:
+          'Sui dispositivi supportati, ora puoi toccare la miniatura nell’app Fotocamera per aprire la foto direttamente in Ente Photos. Un passaggio in meno tra lo scatto e la visualizzazione dove vuoi.',
     ),
     'ja': ChangeLogStrings(
-      title1: '思い出の改善',
+      title1: 'サードパーティアプリ用の写真ピッカー',
       desc1:
-          '思い出機能に多数の改善を加えました。他の人と一緒の思い出をより良く表示し、過去の旅行を検出し、先週や先月の最近の写真も表示します。',
+          'WhatsAppやSignalで写真を共有したいのに、Ente Photosから選択できませんでしたか？対応しました！サードパーティアプリに添付する写真を選択できるようになりました。',
+      title2: 'カメラの写真をEnteで表示',
+      desc2:
+          '対応デバイスでは、カメラアプリのサムネイルをタップすると、写真をEnte Photosで直接開けるようになりました。撮影してから見たい場所で表示するまでの手間がひとつ減ります。',
     ),
     'nl': ChangeLogStrings(
-      title1: 'Verbeteringen aan Herinneringen',
+      title1: 'Fotokiezer voor apps van derden',
       desc1:
-          'We hebben een aantal verbeteringen doorgevoerd in ons herinneringssysteem, waaronder betere herinneringen met andere mensen, het herkennen van je eerdere reizen en het tonen van recente foto\'s van vorige week en vorige maand.',
+          'Wil je een foto delen via WhatsApp of Signal, maar kon je die niet selecteren vanuit Ente Photos? Dat is nu geregeld! We hebben ondersteuning toegevoegd om foto’s te selecteren en toe te voegen aan apps van derden.',
+      title2: 'Camerafoto’s bekijken in Ente',
+      desc2:
+          'Op ondersteunde apparaten kun je nu op de miniatuur in je Camera-app tikken om de foto direct in Ente Photos te openen. Een stap minder tussen het maken van een foto en die zien waar je wilt.',
     ),
     'no': ChangeLogStrings(
-      title1: 'Forbedringer i minner',
+      title1: 'Fotovelger for tredjepartsapper',
       desc1:
-          'Vi har lansert en rekke forbedringer i minnene våre, blant annet bedre minner med andre personer, gjenkjenning av tidligere reiser og visning av nylige bilder fra forrige uke og forrige måned.',
+          'Vil du dele et bilde på WhatsApp eller Signal, men kunne ikke velge det fra Ente Photos? Det har vi fikset! Vi har lagt til støtte for å velge bilder som vedlegg i tredjepartsapper.',
+      title2: 'Se kamerabilder i Ente',
+      desc2:
+          'På støttede enheter kan du nå trykke på miniatyrbildet i Kamera-appen for å åpne bildet direkte i Ente Photos. Ett steg mindre fra du tar et bilde til du ser det der du vil.',
     ),
     'pl': ChangeLogStrings(
-      title1: 'Ulepszenia wspomnień',
+      title1: 'Selektor zdjęć dla aplikacji innych firm',
       desc1:
-          'Wprowadziliśmy szereg ulepszeń w systemie wspomnień, w tym lepsze wspomnienia z innymi osobami, wykrywanie Twoich dawnych podróży oraz wyświetlanie ostatnich zdjęć z zeszłego tygodnia i zeszłego miesiąca.',
+          'Chcesz udostępnić zdjęcie w WhatsAppie lub Signalu, ale nie dało się go wybrać z Ente Photos? Już to obsługujemy! Dodaliśmy możliwość wybierania zdjęć do załączania w aplikacjach innych firm.',
+      title2: 'Wyświetlaj zdjęcia z aparatu w Ente',
+      desc2:
+          'Na obsługiwanych urządzeniach możesz teraz stuknąć miniaturę w aplikacji Aparat, aby otworzyć zdjęcie bezpośrednio w Ente Photos. O jeden krok mniej między zrobieniem zdjęcia a obejrzeniem go tam, gdzie chcesz.',
     ),
     'pt_BR': ChangeLogStrings(
-      title1: 'Melhorias nas memórias',
+      title1: 'Seletor de fotos para apps de terceiros',
       desc1:
-          'Lançamos várias melhorias no nosso sistema de memórias, incluindo melhores momentos compartilhados com outras pessoas, detecção das suas viagens passadas e exibição de fotos recentes da semana passada e do mês passado.',
+          'Quer compartilhar uma foto no WhatsApp ou Signal, mas não conseguia selecioná-la no Ente Photos? Resolvido! Adicionamos suporte para selecionar fotos e anexá-las em apps de terceiros.',
+      title2: 'Veja fotos da câmera no Ente',
+      desc2:
+          'Em dispositivos compatíveis, agora você pode tocar na miniatura no app Câmera para abrir a foto diretamente no Ente Photos. Um passo a menos entre tirar a foto e vê-la onde você quer.',
     ),
     'pt_PT': ChangeLogStrings(
-      title1: 'Melhorias nas memórias',
+      title1: 'Seletor de fotografias para apps de terceiros',
       desc1:
-          'Lançámos várias melhorias no nosso sistema de memórias, incluindo melhores memórias com outras pessoas, deteção das suas viagens passadas e apresentação de fotografias recentes da semana passada e do mês passado.',
+          'Quer partilhar uma fotografia no WhatsApp ou Signal, mas não conseguia selecioná-la no Ente Photos? Está tratado! Adicionámos suporte para selecionar fotografias e anexá-las em apps de terceiros.',
+      title2: 'Veja fotografias da câmara no Ente',
+      desc2:
+          'Em dispositivos compatíveis, pode agora tocar na miniatura na app Câmara para abrir a fotografia diretamente no Ente Photos. Menos um passo entre tirar a fotografia e vê-la onde quer.',
     ),
     'ro': ChangeLogStrings(
-      title1: 'Îmbunătățiri ale amintirilor',
+      title1: 'Selector de fotografii pentru aplicații terțe',
       desc1:
-          'Am lansat o serie de îmbunătățiri pentru sistemul nostru de amintiri, inclusiv amintiri mai bune cu alte persoane, detectarea călătoriilor tale din trecut și afișarea fotografiilor recente din săptămâna trecută și luna trecută.',
+          'Vrei să partajezi o fotografie pe WhatsApp sau Signal, dar nu o puteai selecta din Ente Photos? Am rezolvat! Am adăugat suport pentru selectarea fotografiilor de atașat în aplicații terțe.',
+      title2: 'Vezi fotografiile din cameră în Ente',
+      desc2:
+          'Pe dispozitivele acceptate, poți acum să atingi miniatura din aplicația Cameră pentru a deschide fotografia direct în Ente Photos. Un pas mai puțin între capturarea imaginii și vizualizarea ei unde dorești.',
     ),
     'ru': ChangeLogStrings(
-      title1: 'Улучшения воспоминаний',
+      title1: 'Выбор фото для сторонних приложений',
       desc1:
-          'Мы выпустили множество улучшений в системе воспоминаний: теперь лучше подбираются совместные моменты с близкими, распознаются ваши прошлые поездки и показываются недавние фотографии за прошлую неделю и месяц.',
+          'Хотите поделиться фото в WhatsApp или Signal, но не могли выбрать его из Ente Photos? Теперь это возможно! Мы добавили поддержку выбора фото для прикрепления в сторонних приложениях.',
+      title2: 'Просматривайте фото с камеры в Ente',
+      desc2:
+          'На поддерживаемых устройствах теперь можно нажать миниатюру в приложении Камера, чтобы открыть фото прямо в Ente Photos. На один шаг меньше между съемкой и просмотром там, где вам удобно.',
     ),
     'tr': ChangeLogStrings(
-      title1: 'Anılar için iyileştirmeler',
+      title1: 'Üçüncü taraf uygulamalar için fotoğraf seçici',
       desc1:
-          'Anılar sistemimizde birçok iyileştirme yayınladık. Artık başkalarıyla paylaştığınız anları daha iyi bir şekilde öne çıkarıyor, geçmiş seyahatlerinizi algılıyor ve geçen hafta ile geçen aydan son fotoğraflarınızı gösteriyoruz.',
+          "WhatsApp veya Signal'de fotoğraf paylaşmak istiyor, ama Ente Photos'tan seçemiyor muydunuz? Artık mümkün! Üçüncü taraf uygulamalara eklemek üzere fotoğraf seçme desteği ekledik.",
+      title2: "Kamera fotoğraflarını Ente'de görüntüleyin",
+      desc2:
+          "Desteklenen cihazlarda artık Kamera uygulamanızdaki küçük resme dokunarak fotoğrafı doğrudan Ente Photos'ta açabilirsiniz. Fotoğraf çekmekten istediğiniz yerde görmeye giden yolda bir adım daha az.",
     ),
     'uk': ChangeLogStrings(
-      title1: 'Покращення спогадів',
+      title1: 'Вибір фото для сторонніх застосунків',
       desc1:
-          'Ми випустили низку покращень у нашій системі спогадів, зокрема кращі спогади з іншими людьми, розпізнавання ваших минулих подорожей і показ недавніх фотографій за минулий тиждень і минулий місяць.',
+          'Хочете поділитися фото у WhatsApp або Signal, але не могли вибрати його з Ente Photos? Тепер це можливо! Ми додали підтримку вибору фото для прикріплення у сторонніх застосунках.',
+      title2: 'Переглядайте фото з камери в Ente',
+      desc2:
+          'На підтримуваних пристроях тепер можна торкнутися мініатюри в застосунку Камера, щоб відкрити фото безпосередньо в Ente Photos. На один крок менше між знімком і переглядом там, де вам потрібно.',
     ),
     'vi': ChangeLogStrings(
-      title1: 'Cải thiện Kỷ niệm',
+      title1: 'Trình chọn ảnh cho ứng dụng bên thứ ba',
       desc1:
-          'Chúng tôi đã phát hành nhiều cải tiến cho hệ thống kỷ niệm, bao gồm hiển thị những kỷ niệm tốt hơn với người khác, nhận diện các chuyến đi trước đây của bạn và hiển thị các ảnh gần đây từ tuần trước và tháng trước.',
+          'Muốn chia sẻ ảnh trên WhatsApp hoặc Signal nhưng không thể chọn từ Ente Photos? Chúng tôi đã hỗ trợ! Chúng tôi đã thêm khả năng chọn ảnh để đính kèm vào các ứng dụng bên thứ ba.',
+      title2: 'Xem ảnh chụp từ camera trong Ente',
+      desc2:
+          'Trên các thiết bị được hỗ trợ, giờ bạn có thể nhấn vào hình thu nhỏ trong ứng dụng Camera để mở ảnh trực tiếp trong Ente Photos. Bớt một bước từ lúc chụp đến khi xem ảnh ở nơi bạn muốn.',
     ),
     'zh_CN': ChangeLogStrings(
-      title1: '回忆改进',
-      desc1: '我们对回忆系统进行了多项改进，包括展示与他人相关的更好回忆、识别你过去的旅行，以及展示上周和上个月的近期照片。',
+      title1: '适用于第三方应用的照片选择器',
+      desc1:
+          '想在 WhatsApp 或 Signal 上分享照片，却无法从 Ente Photos 中选择？现在可以了！我们已支持选择照片并将其附加到第三方应用。',
+      title2: '在 Ente 中查看相机照片',
+      desc2:
+          '在受支持的设备上，现在你可以点按相机应用中的缩略图，直接在 Ente Photos 中打开照片。从拍下照片到在想看的地方查看，又少了一步。',
     ),
   };
 
-  static const Map<String, ChangeLogStrings> _offlineTranslations = {
-    'en': ChangeLogStrings(
-      title1: 'QR Code Detection',
-      desc1:
-          'Long-press any photo containing a QR code to instantly reveal and share the content behind it.',
-      title2: 'New Text Selection',
-      desc2:
-          'That same long-press gesture works for text too - use it to detect and select text in any photo.',
-    ),
-    'cs': ChangeLogStrings(
-      title1: 'Detekce QR kódů',
-      desc1:
-          'Dlouhým stisknutím na jakékoli fotce s QR kódem okamžitě zobrazíte a sdílíte obsah za ním.',
-      title2: 'Nový výběr textu',
-      desc2:
-          'Stejné gesto dlouhého stisknutí funguje i pro text – použijte ho k detekci a výběru textu na jakékoli fotce.',
-    ),
-    'de': ChangeLogStrings(
-      title1: 'QR-Code-Erkennung',
-      desc1:
-          'Drücken Sie lange auf ein Foto mit einem QR-Code, um den Inhalt dahinter sofort anzuzeigen und zu teilen.',
-      title2: 'Neue Textauswahl',
-      desc2:
-          'Die gleiche Geste des langen Drückens funktioniert auch für Text – erkennen und markieren Sie Text in jedem Foto.',
-    ),
-    'es': ChangeLogStrings(
-      title1: 'Detección de códigos QR',
-      desc1:
-          'Mantén pulsada cualquier foto que contenga un código QR para revelar y compartir instantáneamente el contenido detrás de él.',
-      title2: 'Nueva selección de texto',
-      desc2:
-          'El mismo gesto de pulsación larga también funciona para texto: úsalo para detectar y seleccionar texto en cualquier foto.',
-    ),
-    'fr': ChangeLogStrings(
-      title1: 'Détection de codes QR',
-      desc1:
-          'Appuyez longuement sur n\'importe quelle photo contenant un code QR pour révéler et partager instantanément le contenu qu\'il renferme.',
-      title2: 'Nouvelle sélection de texte',
-      desc2:
-          'Le même geste d\'appui long fonctionne aussi pour le texte – utilisez-le pour détecter et sélectionner du texte dans n\'importe quelle photo.',
-    ),
-    'it': ChangeLogStrings(
-      title1: 'Rilevamento codici QR',
-      desc1:
-          'Tieni premuto su qualsiasi foto contenente un codice QR per rivelare e condividere istantaneamente il contenuto dietro di esso.',
-      title2: 'Nuova selezione del testo',
-      desc2:
-          'Lo stesso gesto di pressione prolungata funziona anche per il testo: usalo per rilevare e selezionare testo in qualsiasi foto.',
-    ),
-    'ja': ChangeLogStrings(
-      title1: 'QRコード検出',
-      desc1: 'QRコードが含まれる写真を長押しすると、その内容を即座に表示・共有できます。',
-      title2: '新しいテキスト選択',
-      desc2: '同じ長押しジェスチャーはテキストにも対応しています。写真内のテキストを検出・選択できます。',
-    ),
-    'nl': ChangeLogStrings(
-      title1: 'QR-codedetectie',
-      desc1:
-          'Houd een foto met een QR-code lang ingedrukt om de inhoud erachter direct te onthullen en te delen.',
-      title2: 'Nieuwe tekstselectie',
-      desc2:
-          'Hetzelfde gebaar van lang indrukken werkt ook voor tekst – gebruik het om tekst in elke foto te detecteren en te selecteren.',
-    ),
-    'no': ChangeLogStrings(
-      title1: 'QR-kodegjenkjenning',
-      desc1:
-          'Trykk og hold på et bilde som inneholder en QR-kode for å umiddelbart vise og dele innholdet bak den.',
-      title2: 'Ny tekstvelging',
-      desc2:
-          'Den samme langtrykk-bevegelsen fungerer også for tekst – bruk den til å oppdage og velge tekst i et hvilket som helst bilde.',
-    ),
-    'pl': ChangeLogStrings(
-      title1: 'Wykrywanie kodów QR',
-      desc1:
-          'Przytrzymaj dowolne zdjęcie zawierające kod QR, aby natychmiast wyświetlić i udostępnić ukrytą treść.',
-      title2: 'Nowe zaznaczanie tekstu',
-      desc2:
-          'Ten sam gest przytrzymania działa również dla tekstu – użyj go do wykrywania i zaznaczania tekstu na dowolnym zdjęciu.',
-    ),
-    'pt_BR': ChangeLogStrings(
-      title1: 'Detecção de código QR',
-      desc1:
-          'Pressione e segure qualquer foto contendo um código QR para revelar e compartilhar instantaneamente o conteúdo por trás dele.',
-      title2: 'Nova seleção de texto',
-      desc2:
-          'O mesmo gesto de pressionar e segurar também funciona para texto – use-o para detectar e selecionar texto em qualquer foto.',
-    ),
-    'pt_PT': ChangeLogStrings(
-      title1: 'Deteção de código QR',
-      desc1:
-          'Prima longamente qualquer fotografia que contenha um código QR para revelar e partilhar instantaneamente o conteúdo por detrás dele.',
-      title2: 'Nova seleção de texto',
-      desc2:
-          'O mesmo gesto de pressão longa também funciona para texto – utilize-o para detetar e selecionar texto em qualquer fotografia.',
-    ),
-    'ro': ChangeLogStrings(
-      title1: 'Detectare coduri QR',
-      desc1:
-          'Apasă lung pe orice fotografie care conține un cod QR pentru a dezvălui și partaja instantaneu conținutul din spatele acestuia.',
-      title2: 'Nouă selecție de text',
-      desc2:
-          'Același gest de apăsare lungă funcționează și pentru text – folosește-l pentru a detecta și selecta text din orice fotografie.',
-    ),
-    'ru': ChangeLogStrings(
-      title1: 'Распознавание QR-кодов',
-      desc1:
-          'Нажмите и удерживайте любое фото с QR-кодом, чтобы мгновенно просмотреть и поделиться содержимым за ним.',
-      title2: 'Новое выделение текста',
-      desc2:
-          'Тот же жест долгого нажатия работает и для текста — используйте его для распознавания и выделения текста на любом фото.',
-    ),
-    'tr': ChangeLogStrings(
-      title1: 'QR Kod Algılama',
-      desc1:
-          'QR kod içeren herhangi bir fotoğrafa uzun basarak arkasındaki içeriği anında görüntüleyin ve paylaşın.',
-      title2: 'Yeni Metin Seçimi',
-      desc2:
-          'Aynı uzun basma hareketi metin için de çalışır – herhangi bir fotoğraftaki metni algılamak ve seçmek için kullanın.',
-    ),
-    'uk': ChangeLogStrings(
-      title1: 'Розпізнавання QR-кодів',
-      desc1:
-          'Натисніть і утримуйте будь-яке фото з QR-кодом, щоб миттєво переглянути та поділитися вмістом за ним.',
-      title2: 'Нове виділення тексту',
-      desc2:
-          'Той самий жест довгого натискання працює і для тексту – використовуйте його для розпізнавання та виділення тексту на будь-якому фото.',
-    ),
-    'vi': ChangeLogStrings(
-      title1: 'Nhận diện mã QR',
-      desc1:
-          'Nhấn giữ bất kỳ ảnh nào chứa mã QR để hiển thị và chia sẻ ngay nội dung đằng sau nó.',
-      title2: 'Chọn văn bản mới',
-      desc2:
-          'Cử chỉ nhấn giữ tương tự cũng hoạt động với văn bản – sử dụng nó để phát hiện và chọn văn bản trong bất kỳ ảnh nào.',
-    ),
-    'zh_CN': ChangeLogStrings(
-      title1: '二维码检测',
-      desc1: '长按任何包含二维码的照片，即可立即查看和分享其背后的内容。',
-      title2: '全新文字选择',
-      desc2: '同样的长按手势也适用于文字——用它来检测和选择任何照片中的文字。',
-    ),
-  };
+  static const Map<String, ChangeLogStrings> _offlineTranslations =
+      _translations;
 }

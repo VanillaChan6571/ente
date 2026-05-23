@@ -1,26 +1,36 @@
 Latest changes:
-- Neeraj: Add HTTP/2 support with HTTP/1.1 fallback for Photos API requests
-- Amrithesh: Improve zoomed OCR selection UX in the photo viewer
-- Neeraj: Fix dedupe cleanup progress percentage display
-- Neeraj: Fix Added by visibility in file details
-- Neeraj: Contacts
-- Neeraj: Fix grey screen when collections search result is empty
-- Ashil: Fix app going blank on iOS on deleting all empty albums
-- Ashil: Show family dashboard for family non-admin members too
-- Ashil: Updated 'ente' branding
-- Ashil, Laurens: Fix file download not working for files with stale localID references
-- Ashil: Bug fixes and improvements on Gallery
-- Manav: Update flutter_sodium to reproducible libsodium 1.0.21 Android/iOS binaries
-
+- Aman: Album section redesign
+- Aman: Update Setting section UI
+- Laurens: Generate and compress face thumbnails in rust
+- Laurens: More guards around Memory Lane for performance
+- Laurens + Rahul (contributor): Bulk ignore faces for file info sheet
+- Laurens: Support for .hif file in our rust decoder
+- Laurens: Better OCR animation and other minor improvements
+- Laurens: Remove old flickering onboarding widget
+- Laurens: Hash checks for downloaded ML models
+- Neeraj: Ignore missing files during stale upload cleanup [Sentry]
+- Neeraj: Fix blank gallery after switching from offline mode to online account
+- Neeraj: Fix smart memories and ML lookup failures for large offline galleries [Sentry]
+- Neeraj: Stop reporting inline OCR pre-check timeouts as errors [Sentry]
+- Neeraj: Avoid repeated iOS reupload checks when copied temp files are already cleaned up [Sentry]
+- Neeraj: Fix incorrect upload dates for photos with ISO-like metadata timestamps [Sentry]
+- Neeraj: Skip image EXIF parsing for videos
+- Neeraj: Fix iOS crash when playing Pixel Long Shot (.LS) videos
+- Neeraj: Fix Android video preview/export generation by restoring ffmpeg x264 support
+- Neeraj: Fix video edit delete navigation
+- Neeraj: Fix grey screen after single-memory delete or favorite actions
+- Aman: Flutter upgrade
 
 Still behind internal flag:
 - Amrithesh: (I) ML/Pet recognition [Indexing]
-- Amrithesh: (I) QR code detection
-- Laurens: (I) Clip text encoding in rust
-- Laurens: (I) Generate and compress face thumbnails in rust
-- Laurens: (I) Use rust indexing ML pipeline for internal users
+- Aman: (I) Use Rust HEIC decoder for Android photo viewer when dimensions are known
 - Laurens: (I) Use cloudflare worker for upload for internal users
+
 - Neeraj: (I) Add internal-only resumable gallery download queue with persistence/restart fixes and completion banner updates
+- Neeraj: (i) Save Contact
 - Prateek: (i) Enable BG sync notifications by default for internal users on iOS
 - Prateek: (i) Add internal sync recovery diagnostics to classify local discovery vs remote upload-prep misses
-- Prateek: Background sync now short-circuits upload prep on mobile data when "Backup over mobile data" is disabled
+
+Still gated by rollout:
+- Laurens: Clip text encoding in rust
+- Laurens: Use rust indexing ML pipeline

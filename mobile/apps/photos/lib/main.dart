@@ -3,18 +3,20 @@ import 'dart:io';
 
 import "package:adaptive_theme/adaptive_theme.dart";
 import "package:computer/computer.dart";
+import "package:ente_components/ente_components.dart" as components;
 import 'package:ente_crypto/ente_crypto.dart';
 import "package:ente_pure_utils/ente_pure_utils.dart";
 import "package:ente_rust/ente_rust.dart";
 import "package:ffmpeg_kit_flutter/ffmpeg_kit_config.dart";
-import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
+import "package:flutter/gestures.dart";
 import 'package:flutter/material.dart';
 import "package:flutter/rendering.dart";
 import "package:flutter/services.dart";
 import "package:flutter_displaymode/flutter_displaymode.dart";
 import "package:intl/date_symbol_data_local.dart";
 import 'package:logging/logging.dart';
+import "package:media_extension/media_extension_action_types.dart";
 import "package:media_kit/media_kit.dart";
 import "package:package_info_plus/package_info_plus.dart";
 import 'package:path_provider/path_provider.dart';
@@ -24,6 +26,7 @@ import 'package:photos/core/constants.dart';
 import 'package:photos/core/error-reporting/super_logging.dart';
 import 'package:photos/core/errors.dart';
 import 'package:photos/core/network/network.dart';
+import 'package:photos/db/files_db.dart';
 import "package:photos/db/ml/db.dart";
 import 'package:photos/ente_theme_data.dart';
 import "package:photos/l10n/l10n.dart";
@@ -52,8 +55,10 @@ import "package:photos/services/wake_lock_service.dart";
 import "package:photos/src/rust/frb_generated.dart";
 import 'package:photos/ui/tools/app_lock.dart';
 import 'package:photos/ui/tools/lock_screen.dart';
+import "package:photos/utils/device_info.dart";
 import "package:photos/utils/email_util.dart";
 import 'package:photos/utils/file_uploader.dart';
+import "package:photos/utils/intent_util.dart";
 import "package:photos/utils/lock_screen_settings.dart";
 import 'package:rive/rive.dart' as rive;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -73,15 +78,35 @@ bool _stopHearBeat = false;
 bool _isRustInitialized = false;
 Future<void>? _rustInitFuture;
 
+enum ForegroundStartupMode { normal, picker }
+
 void main() async {
   debugRepaintRainbowEnabled = false;
   WidgetsFlutterBinding.ensureInitialized();
+  await initIsIPad();
+  if (isIPad) {
+    // Workaround for https://github.com/flutter/flutter/issues/177992
+    // iPadOS 26.1 sends fake (0,0) pointer events when taps happen near the
+    // status bar; cancel them so they don't dismiss popups, dialogs, etc.
+    // Once we upgrade to a Flutter version that includes the upstream fix,
+    // this workaround can be removed. The entire workaround (isIPad flag,
+    // initIsIPad, and this pointer guard) was introduced in a single commit
+    // so reverting that commit will cleanly remove it.
+    GestureBinding.instance.pointerRouter.addGlobalRoute((PointerEvent event) {
+      if (event is PointerDownEvent && event.position == Offset.zero) {
+        GestureBinding.instance.cancelPointer(event.pointer);
+      }
+    });
+  }
   FFmpegKitConfig.init().ignore();
   await rive.RiveNative.init();
   MediaKit.ensureInitialized();
 
   final savedThemeMode = await AdaptiveTheme.getThemeMode();
-  await _runInForeground(savedThemeMode);
+  final initialMediaExtensionAction = Platform.isAndroid
+      ? await initIntentAction()
+      : MediaExtentionAction(action: IntentAction.main);
+  await _runInForeground(savedThemeMode, initialMediaExtensionAction);
 
   if (Platform.isAndroid) FlutterDisplayMode.setHighRefreshRate().ignore();
   SystemChrome.setSystemUIOverlayStyle(
@@ -91,17 +116,37 @@ void main() async {
   unawaited(SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge));
 }
 
-Future<void> _runInForeground(AdaptiveThemeMode? savedThemeMode) async {
+Future<void> _runInForeground(
+  AdaptiveThemeMode? savedThemeMode,
+  MediaExtentionAction initialMediaExtensionAction,
+) async {
+  components.ComponentTheme.configure(app: components.ComponentApp.photos);
   return await runWithLogs(() async {
     _logger.info("Starting app in foreground");
     isProcessBg = false;
-    await _init(false, via: 'mainMethod');
+    final isPickerStartup =
+        initialMediaExtensionAction.action == IntentAction.pick;
+    if (isPickerStartup) {
+      unawaited(_warmPickerFilesDb());
+    }
+    await _init(
+      false,
+      via: 'mainMethod',
+      startupMode: isPickerStartup
+          ? ForegroundStartupMode.picker
+          : ForegroundStartupMode.normal,
+    );
     final Locale? locale = await getLocale(noFallback: true);
     runApp(
       AppLock(
-        builder: (args) => EnteApp(locale, savedThemeMode),
+        builder: (args) => EnteApp(
+          locale,
+          savedThemeMode,
+          initialMediaExtensionAction: initialMediaExtensionAction,
+        ),
         lockScreen: const LockScreen(),
-        enabled: await Configuration.instance.shouldShowLockScreen() ||
+        enabled:
+            await Configuration.instance.shouldShowLockScreen() ||
             localSettings.isOnGuestView(),
         locale: locale,
         lightTheme: lightThemeData,
@@ -109,12 +154,26 @@ Future<void> _runInForeground(AdaptiveThemeMode? savedThemeMode) async {
         savedThemeMode: _themeMode(savedThemeMode),
       ),
     );
+    if (isPickerStartup) {
+      return;
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       unawaited(SemanticSearchService.instance.init());
       unawaited(_warmForegroundDeferredServices());
     });
     unawaited(_scheduleFGSync('appStart in FG'));
   });
+}
+
+Future<void> _warmPickerFilesDb() async {
+  final tlog = TimeLogger();
+  try {
+    _logger.info("Picker FilesDB warm-up init $tlog");
+    await FilesDB.instance.sqliteAsyncDB;
+    _logger.info("Picker FilesDB warm-up done $tlog");
+  } catch (e, s) {
+    _logger.warning("Picker FilesDB warm-up failed", e, s);
+  }
 }
 
 Future<void> _warmForegroundDeferredServices() async {
@@ -184,29 +243,32 @@ Future<void> _runMinimally(String taskId, TimeLogger tlog) async {
     await _scheduleHeartBeat(prefs, true);
     await _ensureRustInitialized(via: 'workmanager:$taskId');
 
-    _logger.info("(for debugging) Configuration init $tlog");
-    await Configuration.instance.init();
-    _logger.info("(for debugging) Configuration done $tlog");
+    _logger.info("[BG TASK] NetworkClient init $tlog");
+    await NetworkClient.instance.init(packageInfo, prefs);
+    _logger.info("[BG TASK] NetworkClient init done $tlog");
 
-    // App LifeCycle
-    AppLifecycleService.instance.init(prefs);
-    AppLifecycleService.instance
-        .onAppInBackground('init via: WorkManager $tlog');
-
-    // Crypto rel.
-    await Computer.shared().turnOn(workersCount: 4);
-    CryptoUtil.init();
-
-    // Init Network Utils
-    await NetworkClient.instance.init(packageInfo);
-
-    // Global Services
     ServiceLocator.instance.init(
       prefs,
       NetworkClient.instance.enteDio,
       NetworkClient.instance.getDio(),
       packageInfo,
     );
+    NotificationService.instance.init(prefs);
+
+    _logger.info("(for debugging) Configuration init $tlog");
+    await Configuration.instance.init();
+    _logger.info("(for debugging) Configuration done $tlog");
+
+    // App LifeCycle
+    AppLifecycleService.instance.init(prefs);
+    AppLifecycleService.instance.onAppInBackground(
+      'init via: WorkManager $tlog',
+    );
+
+    // Crypto rel.
+    await Computer.shared().turnOn(workersCount: 4);
+    CryptoUtil.init();
+
     // Initialize early so thermal/battery listeners can warm up while the
     // rest of background services are being initialized.
     final controller = computeController;
@@ -225,7 +287,6 @@ Future<void> _runMinimally(String taskId, TimeLogger tlog) async {
 
     // Misc Services
     await UserService.instance.init();
-    NotificationService.instance.init(prefs);
     SocialNotificationCoordinator.instance.init(prefs);
     await NotificationService.instance.initializeForBackground();
 
@@ -242,9 +303,17 @@ Future<void> _runMinimally(String taskId, TimeLogger tlog) async {
     await initializeDateFormatting(locale?.languageCode ?? "en");
     // only runs for android
     _logger.info("[BG TASK] home widget sync");
+    if (!isLocalGalleryMode &&
+        hasGrantedMLConsent &&
+        localSettings.isMLLocalIndexingEnabled) {
+      PersonService.init(entityService, MLDataDB.instance, prefs);
+      _logger.info(
+        "[BG TASK] person service initialized for memories recompute",
+      );
+    }
     await _homeWidgetSync(true);
 
-    if ((isOfflineMode || flagService.enableMLInBackground) &&
+    if ((isLocalGalleryMode || flagService.enableMLInBackground) &&
         hasGrantedMLConsent) {
       await controller.init();
       final canRunML = controller.requestCompute(ml: true);
@@ -275,9 +344,15 @@ Future<void> _runMinimally(String taskId, TimeLogger tlog) async {
   }
 }
 
-Future<void> _init(bool isBackground, {String via = ''}) async {
+Future<void> _init(
+  bool isBackground, {
+  String via = '',
+  ForegroundStartupMode startupMode = ForegroundStartupMode.normal,
+}) async {
   try {
     bool initComplete = false;
+    final isPickerStartup =
+        !isBackground && startupMode == ForegroundStartupMode.picker;
     final TimeLogger tlog = TimeLogger();
     Future.delayed(const Duration(seconds: 15), () {
       if (!initComplete && !isBackground) {
@@ -313,15 +388,8 @@ Future<void> _init(bool isBackground, {String via = ''}) async {
     Computer.shared().turnOn(workersCount: 4).ignore();
     CryptoUtil.init();
 
-    _logger.info("Lockscreen init $tlog");
-    unawaited(LockScreenSettings.instance.init(preferences));
-
-    _logger.info("Configuration init $tlog");
-    await Configuration.instance.init();
-    _logger.info("Configuration done $tlog");
-
     _logger.info("NetworkClient init $tlog");
-    await NetworkClient.instance.init(packageInfo);
+    await NetworkClient.instance.init(packageInfo, preferences);
     _logger.info("NetworkClient init done $tlog");
 
     ServiceLocator.instance.init(
@@ -330,6 +398,14 @@ Future<void> _init(bool isBackground, {String via = ''}) async {
       NetworkClient.instance.getDio(),
       packageInfo,
     );
+
+    _logger.info("Lockscreen init $tlog");
+    unawaited(LockScreenSettings.instance.init(preferences));
+
+    _logger.info("Configuration init $tlog");
+    await Configuration.instance.init();
+    _logger.info("Configuration done $tlog");
+
     await MemoryShareService.instance.init();
 
     _logger.info("UserService init $tlog");
@@ -341,9 +417,24 @@ Future<void> _init(bool isBackground, {String via = ''}) async {
     _logger.info("CollectionsService init done $tlog");
     SocialNotificationCoordinator.instance.init(preferences);
 
+    SearchService.instance.init();
+
+    if (isPickerStartup) {
+      if (Configuration.instance.hasConfiguredAccount()) {
+        _logger.info("Minor inits for logged in state $tlog");
+        PersonService.init(entityService, MLDataDB.instance, preferences);
+        _logger.info("PersonService init for picker startup done $tlog");
+        await FavoritesService.instance.initFav();
+        _logger.info("FavoritesService init done $tlog");
+      }
+      _logger.info("Picker startup init done $tlog");
+      initComplete = true;
+      _stopHearBeat = true;
+      return;
+    }
+
     FavoritesService.instance.initFav().ignore();
     LocalFileUpdateService.instance.init(preferences);
-    SearchService.instance.init();
 
     _logger.info("FileUploader init $tlog");
     await FileUploader.instance.init(preferences, isBackground);
@@ -375,11 +466,9 @@ Future<void> _init(bool isBackground, {String via = ''}) async {
     }
 
     if (Platform.isIOS) {
-      PushService.instance.init().then((_) {
-        FirebaseMessaging.onBackgroundMessage(
-          _firebaseMessagingBackgroundHandler,
-        );
-      }).ignore();
+      PushService.instance
+          .init(onBackgroundPush: _handleBackgroundPush)
+          .ignore();
     }
     _logger.info("PushService/HomeWidget done $tlog");
     unawaited(MLService.instance.init());
@@ -418,10 +507,7 @@ Future<void> _ensureRustInitialized({required String via}) async {
     return;
   }
 
-  final initFuture = Future.wait([
-    EntePhotosRust.init(),
-    EnteRust.init(),
-  ]);
+  final initFuture = Future.wait([EntePhotosRust.init(), EnteRust.init()]);
   _rustInitFuture = initFuture;
   try {
     await initFuture;
@@ -443,8 +529,9 @@ void logLocalSettings() {
         VideoPreviewService.instance.isVideoStreamingEnabled,
   };
 
-  final formattedSettings =
-      settings.entries.map((e) => '${e.key}: ${e.value}').join(', ');
+  final formattedSettings = settings.entries
+      .map((e) => '${e.key}: ${e.value}')
+      .join(', ');
   _logger.info('Local settings - $formattedSettings');
 }
 
@@ -535,7 +622,7 @@ Future<bool> _isRunningInForeground() async {
       (currentTime - kFGTaskDeathTimeoutInMicroseconds);
 }
 
-Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+Future<void> _handleBackgroundPush(Object message) async {
   final bool isRunningInFG = await _isRunningInForeground(); // hb
   final bool isInForeground = AppLifecycleService.instance.isForeground;
   if (isRunningInFG) {
@@ -549,24 +636,21 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
     }
   } else {
     // App is dead or FG is not active
-    runWithLogs(
-      () async {
-        _logger.info("Background push received, no active foreground");
+    runWithLogs(() async {
+      _logger.info("Background push received, no active foreground");
 
-        // Mark BG as active before starting
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setInt(
-          kLastBGTaskHeartBeatTime,
-          DateTime.now().microsecondsSinceEpoch,
-        );
+      // Mark BG as active before starting
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt(
+        kLastBGTaskHeartBeatTime,
+        DateTime.now().microsecondsSinceEpoch,
+      );
 
-        await _init(true, via: 'firebasePush');
-        if (PushService.shouldSync(message)) {
-          await _sync('firebaseBgSyncNoActiveProcess');
-        }
-      },
-      prefix: "[fbg]",
-    ).ignore();
+      await _init(true, via: 'firebasePush');
+      if (PushService.shouldSync(message)) {
+        await _sync('firebaseBgSyncNoActiveProcess');
+      }
+    }, prefix: "[fbg]").ignore();
   }
 }
 

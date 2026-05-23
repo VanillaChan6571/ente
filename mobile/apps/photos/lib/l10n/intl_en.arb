@@ -273,7 +273,7 @@
   "after1Month": "After 1 month",
   "after1Year": "After 1 year",
   "manageParticipants": "Manage",
-  "albumParticipantsCount": "{count, plural, =0 {No Participants} =1 {1 Participant} other {{count} Participants}}",
+  "albumParticipantsCount": "{count, plural, =0 {No Participants} one {{count} Participant} other {{count} Participants}}",
   "@albumParticipantsCount": {
     "placeholders": {
       "count": {
@@ -298,7 +298,7 @@
   "publicLinkEnabled": "Public link enabled",
   "shareALink": "Share a link",
   "sharedAlbumSectionDescription": "Create shared and collaborative albums with other Ente users, including users on free plans.",
-  "shareWithPeopleSectionTitle": "{numberOfPeople, plural, =0 {Share with specific people} =1 {Shared with 1 person} other {Shared with {numberOfPeople} people}}",
+  "shareWithPeopleSectionTitle": "{numberOfPeople, plural, =0 {Share with specific people} one {Shared with {numberOfPeople} person} other {Shared with {numberOfPeople} people}}",
   "@shareWithPeopleSectionTitle": {
     "placeholders": {
       "numberOfPeople": {
@@ -448,6 +448,7 @@
   "deleteFromBoth": "Delete from both",
   "newAlbum": "New album",
   "albums": "Albums",
+  "ente": "Ente",
   "memoryCount": "{count, plural, =0{no memories} one{{formattedCount} memory} other{{formattedCount} memories}}",
   "@memoryCount": {
     "description": "The text to display the number of memories",
@@ -562,7 +563,7 @@
   "updateSettings": "Update settings",
   "updatingFolderSelection": "Updating folder selection...",
   "itemCount": "{count, plural, one{{count} item} other{{count} items}}",
-  "deleteItemCount": "{count, plural, =1 {Delete {count} item} other {Delete {count} items}}",
+  "deleteItemCount": "{count, plural, one {Delete {count} item} other {Delete {count} items}}",
   "duplicateItemsGroup": "{count} files, {formattedSize} each",
   "@duplicateItemsGroup": {
     "description": "Display the number of duplicate files and their size",
@@ -640,6 +641,7 @@
   "youveNoDuplicateFilesThatCanBeCleared": "You don't have any duplicate files that can be cleared",
   "success": "Success",
   "rateUs": "Rate us",
+  "changeLogReferralCta": "Give 10 GB, Get 10 GB",
   "remindToEmptyDeviceTrash": "Also empty \"Recently Deleted\" from \"Settings\" -> \"Storage\" to claim the freed space",
   "youHaveSuccessfullyFreedUp": "You have successfully freed up {storageSaved}!",
   "@youHaveSuccessfullyFreedUp": {
@@ -696,7 +698,7 @@
   "inviteLimitReached": "You've added 5 invites. Remove one to add another",
   "emailAddress": "Email address",
   "sendInvites": "Send invites",
-  "sendCountInvites": "{count, plural, =0 {Send invites} =1 {Send 1 invite} other {Send {count} invites}}",
+  "sendCountInvites": "{count, plural, =0 {Send invites} one {Send {count} invite} other {Send {count} invites}}",
   "@sendCountInvites": {
     "placeholders": {
       "count": {
@@ -718,7 +720,7 @@
       }
     }
   },
-  "invitesSentCount": "{count, plural, =1 {Invite sent} other {Invites sent}}",
+  "invitesSentCount": "{count, plural, one {Invite sent} other {Invites sent}}",
   "@invitesSentCount": {
     "placeholders": {
       "count": {
@@ -834,12 +836,13 @@
   "referrals": "Referrals",
   "notifications": "Notifications",
   "sharedPhotoNotifications": "New shared photos and albums",
-  "sharedPhotoNotificationsExplanation": "Get notifications for new photos in shared albums you're in and for new albums shared with you.",
+  "sharedPhotoNotificationsExplanation": "New photos and albums you are in or shared with you",
   "socialNotifications": "Likes and comments",
-  "socialNotificationsExplanation": "Receive notifications for likes on your photos and comments on albums you're a part of",
+  "socialNotificationsExplanation": "Likes on your photos and comments on albums you are a part of",
   "advanced": "Advanced",
   "general": "General",
   "security": "Security",
+  "settings": "Settings",
   "authToViewYourRecoveryKey": "Please authenticate to view your recovery key",
   "twofactor": "Two-factor",
   "authToConfigureTwofactorAuthentication": "Please authenticate to configure two-factor authentication",
@@ -994,7 +997,16 @@
   "playstoreSubscription": "PlayStore subscription",
   "appstoreSubscription": "AppStore subscription",
   "subAlreadyLinkedErrMessage": "Your {id} is already linked to another Ente account.\nIf you would like to use your {id} with this account, please contact our support''",
-  "visitWebToManage": "Please visit web.ente.io to manage your subscription",
+  "visitWebToManage": "Please visit {webUrl} to manage your subscription",
+  "@visitWebToManage": {
+    "description": "Shown when a Stripe subscriber needs to manage their subscription on the web.",
+    "placeholders": {
+      "webUrl": {
+        "type": "String",
+        "example": "photos.ente.com"
+      }
+    }
+  },
   "managePaymentMethod": "Manage payment method",
   "couldNotUpdateSubscription": "Could not update subscription",
   "pleaseContactSupportAndWeWillBeHappyToHelp": "Please contact support@ente.com and we will be happy to help!",
@@ -1048,6 +1060,17 @@
   "grantFullAccessPrompt": "Please allow access to all photos in the Settings app",
   "allowPermTitle": "Allow access to photos",
   "allowPermBody": "Please allow access to your photos from Settings so Ente can display and backup your library.",
+  "allowAccessToYourPhotos": "Allow access to your photos",
+  "enteNeedsPermissionToSeeDeviceAlbums": "Ente needs permission to see your device albums",
+  "allYourDeviceAlbumsInOnePlace": "All your device albums, in one place",
+  "youPickWhatGetsBackedUp": "You pick what gets backed up",
+  "privateAndEndToEndEncryptedAlways": "Private and end-to-end encrypted, always",
+  "grantAccess": "Grant access",
+  "albumsSharedWithYouShowUpHere": "Albums shared with you show up here",
+  "inviteFamilyToSharePhotosPrivately": "Invite your family to share photos privately",
+  "shareStorageWithUpToFiveFamilyMembers": "Share storage with up to 5 family members",
+  "reactAndChatOnSharedMemories": "React and chat on shared memories",
+  "addFamily": "Add family",
   "openSettings": "Open settings",
   "selectMorePhotos": "Select more photos",
   "existingUser": "Existing user",
@@ -1058,7 +1081,7 @@
   "shareTheMoment": "Share the moment",
   "letFriendsAndFamilyReact": "Let friends and family react and comment on your photos.",
   "pleaseLoginAgain": "Please login again",
-  "autoLogoutMessage": "Due to technical glitch, you have been logged out. Our apologies for the inconvenience.",
+  "autoLogoutMessage": "Due to a technical glitch, you have been logged out. Our apologies for the inconvenience.",
   "yourSubscriptionHasExpired": "Your subscription has expired",
   "storageLimitExceeded": "Storage limit exceeded",
   "upgrade": "Upgrade",
@@ -1085,13 +1108,16 @@
     "description": "The text displayed above folders/albums stored on device",
     "type": "text"
   },
-  "onDevice": "On device",
+  "onDevice": "Device",
   "@onEnte": {
     "description": "The text displayed above albums backed up to Ente",
     "type": "text"
   },
   "onEnte": "On <branding>ente</branding>",
+  "grid": "Grid",
+  "list": "List",
   "name": "Name",
+  "created": "Created",
   "newest": "Newest",
   "lastUpdated": "Last updated",
   "updated": "Updated",
@@ -1139,6 +1165,7 @@
   "deleteLinkQuestion": "Delete link?",
   "deleteMemoryLinkMessage": "People you shared this link with will lose access once it is deleted.",
   "linkDeletedSuccessfully": "Link deleted successfully",
+  "memoryLink": "Memory link",
   "memoryLinks": "Memory links",
   "openLink": "Open link",
   "pay": "Pay",
@@ -1154,17 +1181,18 @@
   "share": "Share",
   "unhideToAlbum": "Unhide to album",
   "restoreToAlbum": "Restore to album",
-  "moveItem": "{count, plural, =1 {Move item} other {Move items}}",
+  "moveItem": "{count, plural, one {Move item} other {Move items}}",
   "@moveItem": {
     "description": "Page title while moving one or more items to an album"
   },
-  "addItem": "{count, plural, =1 {Add item} other {Add items}}",
+  "addItem": "{count, plural, one {Add item} other {Add items}}",
   "@addItem": {
     "description": "Page title while adding one or more items to album"
   },
   "createOrSelectAlbum": "Create or select album",
   "selectAlbum": "Select album",
   "searchByAlbumNameHint": "Album name",
+  "searchAlbums": "Search albums",
   "albumTitle": "Album title",
   "enterAlbumName": "Enter album name",
   "restoringFiles": "Restoring files...",
@@ -1186,7 +1214,7 @@
   "referFriendsAnd2xYourPlan": "Refer friends and 2x your plan",
   "shareAlbumHint": "Open an album and tap the share button on the top right to share.",
   "itemsShowTheNumberOfDaysRemainingBeforePermanentDeletion": "Items show the number of days remaining before permanent deletion",
-  "trashDaysLeft": "{count, plural, =0 {Soon} =1 {1 day} other {{count} days}}",
+  "trashDaysLeft": "{count, plural, =0 {Soon} one {{count} day} other {{count} days}}",
   "@trashDaysLeft": {
     "description": "Text to indicate number of days remaining before permanent deletion",
     "placeholders": {
@@ -1256,6 +1284,10 @@
   "fileSavedToGallery": "File saved to gallery",
   "filesSavedToGallery": "Files saved to gallery",
   "fileFailedToSaveToGallery": "Failed to save file to gallery",
+  "applePhotosUnsupportedResource": "This file could not be saved to Apple Photos. You can still view it in Ente.",
+  "@applePhotosUnsupportedResource": {
+    "description": "Shown when iOS Photos rejects a file while saving to gallery because the media resource is invalid or unsupported"
+  },
   "download": "Download",
   "downloadSkippedAlreadyAvailableOnDevice": "{fileName} is already available in the {albumName} album on your device",
   "@downloadSkippedAlreadyAvailableOnDevice": {
@@ -1305,8 +1337,8 @@
   "authToViewYourMemories": "Please authenticate to view your memories",
   "unlock": "Unlock",
   "freeUpSpace": "Free up space",
-  "freeUpSpaceSaving": "{count, plural, =1 {It can be deleted from the device to free up {formattedSize}} other {They can be deleted from the device to free up {formattedSize}}}",
-  "filesBackedUpInAlbum": "{count, plural, one {1 file} other {{formattedNumber} files}} in this album has been backed up safely",
+  "freeUpSpaceSaving": "{count, plural, one {It can be deleted from the device to free up {formattedSize}} other {They can be deleted from the device to free up {formattedSize}}}",
+  "filesBackedUpInAlbum": "{count, plural, one {{formattedNumber} file} other {{formattedNumber} files}} in this album has been backed up safely",
   "@filesBackedUpInAlbum": {
     "description": "Text to tell user how many files have been backed up in the album",
     "placeholders": {
@@ -1321,7 +1353,7 @@
       }
     }
   },
-  "filesBackedUpFromDevice": "{count, plural, one {1 file} other {{formattedNumber} files}} on this device have been backed up safely",
+  "filesBackedUpFromDevice": "{count, plural, one {{formattedNumber} file} other {{formattedNumber} files}} on this device have been backed up safely",
   "@filesBackedUpFromDevice": {
     "description": "Text to tell user how many files have been backed up from this device",
     "placeholders": {
@@ -1339,7 +1371,7 @@
   "@freeUpSpaceSaving": {
     "description": "Text to tell user how much space they can free up by deleting items from the device"
   },
-  "freeUpAccessPostDelete": "You can still access {count, plural, =1 {it} other {them}} on Ente as long as you have an active subscription",
+  "freeUpAccessPostDelete": "You can still access {count, plural, one {it} other {them}} on Ente as long as you have an active subscription",
   "@freeUpAccessPostDelete": {
     "placeholders": {
       "count": {
@@ -1450,7 +1482,16 @@
   "loadMessage5": "Our source code and cryptography have been externally audited",
   "loadMessage6": "You can share links to your albums with your loved ones",
   "loadMessage7": "Our mobile apps run in the background to encrypt and backup any new photos you click",
-  "loadMessage8": "web.ente.io has a slick uploader",
+  "loadMessage8": "{webUrl} has a slick uploader",
+  "@loadMessage8": {
+    "description": "Loading screen message about the web uploader.",
+    "placeholders": {
+      "webUrl": {
+        "type": "String",
+        "example": "photos.ente.com"
+      }
+    }
+  },
   "loadMessage9": "We use Xchacha20Poly1305 to safely encrypt your data",
   "photoDescriptions": "Photo descriptions",
   "searchResultFileName": "File name",
@@ -1630,6 +1671,8 @@
   "maps": "Maps",
   "mapsPrivacyNotice": "Approximate coordinates will be sent to privacy conscious third parties like OpenStreetMap to show the map and location.",
   "enableMaps": "Enable Maps",
+  "links": "Links",
+  "noLinksYet": "No links yet",
   "quickLinks": "Quick links",
   "selectItemsToAdd": "Select items to add",
   "addSelected": "Add selected",
@@ -1663,6 +1706,7 @@
   "successfullyUnhid": "Successfully unhid",
   "crashReporting": "Crash reporting",
   "resumableUploads": "Resumable uploads",
+  "fasterUploads": "Faster uploads",
   "addToHiddenAlbum": "Add to hidden album",
   "moveToHiddenAlbum": "Move to hidden album",
   "fileTypes": "File types",
@@ -1727,7 +1771,16 @@
   "playOnTv": "Play album on TV",
   "pair": "Pair",
   "deviceNotFound": "Device not found",
-  "castInstruction": "Visit cast.ente.io on the device you want to pair.\n\nEnter the code below to play the album on your TV.",
+  "castInstruction": "Visit {castUrl} on the device you want to pair.\n\nEnter the code below to play the album on your TV.",
+  "@castInstruction": {
+    "description": "Instructions shown when pairing a device to play an album on TV.",
+    "placeholders": {
+      "castUrl": {
+        "type": "String",
+        "example": "https://cast.ente.com"
+      }
+    }
+  },
   "deviceCodeHint": "Enter the code",
   "joinDiscord": "Join Discord",
   "locations": "Locations",
@@ -1737,8 +1790,8 @@
     "description": "Subtitle to indicate that the user can find people quickly by name"
   },
   "findPeopleByName": "Find people quickly by name",
-  "addViewers": "{count, plural, =0 {Add viewer} =1 {Add viewer} other {Add viewers}}",
-  "addCollaborators": "{count, plural, =0 {Add collaborator} =1 {Add collaborator} other {Add collaborators}}",
+  "addViewers": "{count, plural, =0 {Add viewer} one {Add viewer} other {Add viewers}}",
+  "addCollaborators": "{count, plural, =0 {Add collaborator} one {Add collaborator} other {Add collaborators}}",
   "longPressAnEmailToVerifyEndToEndEncryption": "Long press an email to verify end to end encryption.",
   "developerSettingsWarning": "Are you sure that you want to modify Developer settings?",
   "developerSettings": "Developer settings",
@@ -1874,7 +1927,7 @@
   "@noFacesDetectedTapToAdd": {
     "description": "Shown in file details when no faces are detected, but manual tagging is available."
   },
-  "addedFilesToPerson": "{count, plural, =1 {Added 1 file to {personName}} other {Added {count} files to {personName}}}",
+  "addedFilesToPerson": "{count, plural, one {Added {count} file to {personName}} other {Added {count} files to {personName}}}",
   "@addedFilesToPerson": {
     "description": "Toast shown after manually tagging one or more files to a person.",
     "placeholders": {
@@ -1888,7 +1941,7 @@
       }
     }
   },
-  "filesAlreadyLinkedToPerson": "{count, plural, =1 {1 file is already linked to {personName}} other {{count} files are already linked to {personName}}}",
+  "filesAlreadyLinkedToPerson": "{count, plural, one {{count} file is already linked to {personName}} other {{count} files are already linked to {personName}}}",
   "@filesAlreadyLinkedToPerson": {
     "description": "Toast shown when selected files are already manually tagged to the selected person.",
     "placeholders": {
@@ -1951,7 +2004,7 @@
   "enableMachineLearningBanner": "Enable machine learning for magic search and face recognition",
   "searchDiscoverEmptySection": "Images will be shown here once processing and syncing is complete",
   "searchPersonsEmptySection": "People will be shown here once processing and syncing is complete",
-  "viewersSuccessfullyAdded": "{count, plural, =0 {Added 0 viewers} =1 {Added 1 viewer} other {Added {count} viewers}}",
+  "viewersSuccessfullyAdded": "{count, plural, =0 {Added 0 viewers} one {Added {count} viewer} other {Added {count} viewers}}",
   "@viewersSuccessfullyAdded": {
     "placeholders": {
       "count": {
@@ -1961,7 +2014,7 @@
     },
     "description": "Number of viewers that were successfully added to an album."
   },
-  "collaboratorsSuccessfullyAdded": "{count, plural, =0 {Added 0 collaborator} =1 {Added 1 collaborator} other {Added {count} collaborators}}",
+  "collaboratorsSuccessfullyAdded": "{count, plural, =0 {Added 0 collaborator} one {Added {count} collaborator} other {Added {count} collaborators}}",
   "@collaboratorsSuccessfullyAdded": {
     "placeholders": {
       "count": {
@@ -1971,7 +2024,7 @@
     },
     "description": "Number of collaborators that were successfully added to an album."
   },
-  "adminsSuccessfullyAdded": "{count, plural, =0 {No admins were added} =1 {1 admin successfully added} other {{count} admins successfully added}}",
+  "adminsSuccessfullyAdded": "{count, plural, =0 {No admins were added} one {{count} admin successfully added} other {{count} admins successfully added}}",
   "@adminsSuccessfullyAdded": {
     "placeholders": {
       "count": {
@@ -1981,7 +2034,7 @@
     },
     "description": "Number of admins that were successfully added to an album."
   },
-  "addAdmins": "{count, plural, =0 {Add admin} =1 {Add admin} other {Add admins}}",
+  "addAdmins": "{count, plural, =0 {Add admin} one {Add admin} other {Add admins}}",
   "@addAdmins": {
     "placeholders": {
       "count": {
@@ -2060,7 +2113,7 @@
   },
   "currentlyRunning": "currently running",
   "ignored": "ignored",
-  "photosCount": "{count, plural, =0 {0 photos} =1 {1 photo} other {{count} photos}}",
+  "photosCount": "{count, plural, =0 {0 photos} one {{count} photo} other {{count} photos}}",
   "@photosCount": {
     "placeholders": {
       "count": {
@@ -2354,7 +2407,7 @@
   "moveSelectedPhotosToOneDate": "Move selected photos to one date",
   "shiftDatesAndTime": "Shift dates and time",
   "photosKeepRelativeTimeDifference": "Photos keep relative time difference",
-  "photocountPhotos": "{count, plural, =0 {No photos} =1 {1 photo} other {{count} photos}}",
+  "photocountPhotos": "{count, plural, =0 {No photos} one {{count} photo} other {{count} photos}}",
   "@photocountPhotos": {
     "placeholders": {
       "count": {
@@ -2368,7 +2421,7 @@
   "selectedItemsWillBeRemovedFromThisPerson": "Selected items will be removed from this person, but not deleted from your library.",
   "throughTheYears": "{dateFormat} through the years",
   "thisWeekThroughTheYears": "This week through the years",
-  "thisWeekXYearsAgo": "{count, plural, =1 {This week, {count} year ago} other {This week, {count} years ago}}",
+  "thisWeekXYearsAgo": "{count, plural, one {This week, {count} year ago} other {This week, {count} years ago}}",
   "youAndThem": "You and {name}",
   "admiringThem": "Admiring {name}",
   "embracingThem": "Embracing {name}",
@@ -2419,13 +2472,13 @@
   "newPhotosEmoji": " new 📸",
   "sorryWeHadToPauseYourBackups": "Sorry, we had to pause your backups",
   "clickToInstallOurBestVersionYet": "Click to install our best version yet",
-  "onThisDayNotificationExplanation": "Receive reminders about memories from this day in previous years.",
+  "onThisDayNotificationExplanation": "Memories from this day in previous years",
   "addMemoriesWidgetPrompt": "Add a memories widget to your home screen to customize it here.",
   "addAlbumWidgetPrompt": "Add an album widget to your home screen to customize it here.",
   "addPeopleWidgetPrompt": "Add a people widget to your home screen to customize it here.",
   "showTextOnWidget": "Show text on widget",
   "birthdayNotifications": "Birthday notifications",
-  "receiveRemindersOnBirthdays": "Receive reminders when it's someone's birthday. Tapping on the notification will take you to photos of the birthday person.",
+  "receiveRemindersOnBirthdays": "Reminders when it's someone's birthday",
   "happyBirthday": "Happy birthday! 🥳",
   "birthdays": "Birthdays",
   "wishThemAHappyBirthday": "Wish {name} a happy birthday! 🎉",
@@ -2492,7 +2545,7 @@
   "font": "Font",
   "background": "Background",
   "align": "Align",
-  "addedToAlbums": "{count, plural, =1{Added successfully to 1 album} other{Added successfully to {count} albums}}",
+  "addedToAlbums": "{count, plural, one{Added successfully to {count} album} other{Added successfully to {count} albums}}",
   "@addedToAlbums": {
     "description": "Message shown when items are added to albums",
     "placeholders": {
@@ -2531,7 +2584,7 @@
   "findSimilarImages": "Find similar images",
   "noSimilarImagesFound": "No similar images found",
   "yourPhotosLookUnique": "Your photos look unique",
-  "similarGroupsFound": "{count, plural, =1{{count} group found} other{{count} groups found}}",
+  "similarGroupsFound": "{count, plural, one{{count} group found} other{{count} groups found}}",
   "@similarGroupsFound": {
     "placeholders": {
       "count": {
@@ -2851,6 +2904,10 @@
   "@likedYourVideo": {
     "description": "Social notification action text shown after a person's name, for example 'John liked your video'. Make sure the translation reads naturally with a name before it, and do not capitalize the first letter."
   },
+  "likedAVideo": "liked a video",
+  "@likedAVideo": {
+    "description": "Social action text shown after a person's name, for example 'John liked a video'. Make sure the translation reads naturally with a name before it, and do not capitalize the first letter."
+  },
   "commentedOnYourPhoto": "commented on your photo",
   "@commentedOnYourPhoto": {
     "description": "Social notification action text shown after a person's name, for example 'John commented on your photo'. Make sure the translation reads naturally with a name before it, and do not capitalize the first letter."
@@ -2931,6 +2988,16 @@
     }
   },
   "noActivityYet": "No activity yet",
+  "nothingHereYet": "Nothing here yet",
+  "shareAnAlbumWithSomeoneYouLove": "Share an album with someone you love",
+  "seeTheLoveYourPhotosGet": "See the love your photos get",
+  "yourConversationsAttachedToTheMoment": "Your conversations, attached to the moment",
+  "stayConnectedWithThePeopleYouShareWith": "Stay connected with the people you share with",
+  "shareAnAlbum": "Share an album",
+  "seeWhatYourPeopleAreUpTo": "See what your people are up to",
+  "signUpToShareMomentsPrivately": "Sign up to share moments privately",
+  "reactToTheMomentsThatMatter": "React to the moments that matter",
+  "leaveANoteOnTheMomentsSharedWithYou": "Leave a note on the moments shared with you",
   "like": "Like",
   "comments": "Comments",
   "commentHint": "Say something nice!",
@@ -2958,7 +3025,7 @@
       }
     }
   },
-  "likesCount": "{count, plural, =1{1 like} other{{count} likes}}",
+  "likesCount": "{count, plural, one{{count} like} other{{count} likes}}",
   "@likesCount": {
     "description": "Number of likes with pluralization",
     "placeholders": {
@@ -2979,7 +3046,7 @@
   "@failedToUpdateLike": {
     "description": "Toast when like update fails"
   },
-  "failedToLikeAlbums": "{count, plural, =1{Failed to like 1 album} other{Failed to like {count} albums}}",
+  "failedToLikeAlbums": "{count, plural, one{Failed to like {count} album} other{Failed to like {count} albums}}",
   "@failedToLikeAlbums": {
     "description": "Error when liking albums fails",
     "placeholders": {
@@ -2996,7 +3063,7 @@
   "@couldNotLoadSelectedPhoto": {
     "description": "Toast when the selected contact photo cannot be loaded"
   },
-  "albumsCount": "{count, plural, =1{1 album} other{{count} albums}}",
+  "albumsCount": "{count, plural, one{{count} album} other{{count} albums}}",
   "@albumsCount": {
     "description": "Number of albums with pluralization",
     "placeholders": {
@@ -3042,7 +3109,7 @@
       }
     }
   },
-  "commentsCount": "{count, plural, =0{No comments} =1{1 comment} other{{count} comments}}",
+  "commentsCount": "{count, plural, =0{No comments} one{{count} comment} other{{count} comments}}",
   "@commentsCount": {
     "description": "Number of comments with pluralization",
     "placeholders": {
@@ -3080,6 +3147,13 @@
   "offlineEnableBackupDesc": "Sign up to preserve your memories with Ente.",
   "offlineEnableBackupTagLabel": "10 GB FREE!",
   "offlineEnableBackupAction": "Start with 10 GB FREE",
+  "organizeYourMemories": "Organize your memories",
+  "groupPhotosTheWayYouThinkAboutThem": "Group your photos the way you think about them",
+  "endToEndEncryptedOnlyYourPeopleCanSeeIt": "End-to-end encrypted, so only your people can see it",
+  "backedUpSafelyAcrossDevices": "Backed up safely across your devices",
+  "smartAlbumsOrganizePhotosForYou": "Smart albums organize photos for you",
+  "createAlbum": "Create album",
+  "createASmartAlbum": "Create a smart album",
   "offlineSettingsBannerTitle": "We can't see your photos. Ever.",
   "offlineSettingsBannerDesc": "Zero-knowledge encryption means your memories stay yours.",
   "alreadyHaveAnAccount": "Already have an account?",

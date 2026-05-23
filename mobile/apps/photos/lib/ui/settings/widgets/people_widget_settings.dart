@@ -88,8 +88,8 @@ class _PeopleWidgetSettingsState extends State<PeopleWidgetSettings> {
                             unawaited(
                               PeopleHomeWidgetService.instance
                                   .setSelectedPeople(
-                                _selectedPeople.personIds.toList(),
-                              ),
+                                    _selectedPeople.personIds.toList(),
+                                  ),
                             );
                             Navigator.pop(context);
                           }
@@ -134,39 +134,37 @@ class _PeopleWidgetSettingsState extends State<PeopleWidgetSettings> {
                     SizedBox(
                       height: MediaQuery.sizeOf(context).height * 0.5 - 200,
                     ),
-                    Image.asset(
-                      "assets/people-widget-static.png",
-                      height: 160,
-                    ),
+                    Image.asset("assets/people-widget-static.png", height: 160),
                   ],
                 ),
               ),
             )
           else ...[
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(6, 18, 6, 8),
-                child: MenuItemWidgetNew(
-                  title: AppLocalizations.of(context).showTextOnWidget,
-                  trailingWidget: ToggleSwitchWidget(
-                    value: () => _showText,
-                    onChanged: () async {
-                      final next = !_showText;
-                      setState(() => _showText = next);
-                      await localSettings.setWidgetTextHidden(
-                        WidgetHideTextFlag.people,
-                        !next,
-                      );
-                      await HomeWidgetService.instance.updateWidget(
-                        androidClass:
-                            PeopleHomeWidgetService.ANDROID_CLASS_NAME,
-                        iOSClass: PeopleHomeWidgetService.IOS_CLASS_NAME,
-                      );
-                    },
+            if (kDebugMode)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(6, 18, 6, 8),
+                  child: MenuItemWidgetNew(
+                    title: AppLocalizations.of(context).showTextOnWidget,
+                    trailingWidget: ToggleSwitchWidget(
+                      value: () => _showText,
+                      onChanged: () async {
+                        final next = !_showText;
+                        setState(() => _showText = next);
+                        await localSettings.setWidgetTextHidden(
+                          WidgetHideTextFlag.people,
+                          !next,
+                        );
+                        await HomeWidgetService.instance.updateWidget(
+                          androidClass:
+                              PeopleHomeWidgetService.ANDROID_CLASS_NAME,
+                          iOSClass: PeopleHomeWidgetService.IOS_CLASS_NAME,
+                        );
+                      },
+                    ),
                   ),
                 ),
               ),
-            ),
             SliverFillRemaining(
               child: PeopleSectionAllWidget(
                 selectedPeople: _selectedPeople,

@@ -22,7 +22,9 @@ import (
 	"github.com/ente-io/museum/pkg/controller/emergency"
 	"github.com/ente-io/museum/pkg/controller/file_copy"
 	"github.com/ente-io/museum/pkg/controller/filedata"
+	legacykitctrl "github.com/ente-io/museum/pkg/controller/legacy_kit"
 	emergencyRepo "github.com/ente-io/museum/pkg/repo/emergency"
+	legacykitrepo "github.com/ente-io/museum/pkg/repo/legacy_kit"
 
 	"github.com/ente-io/museum/pkg/repo/two_factor_recovery"
 
@@ -102,13 +104,15 @@ func main() {
 		panic(err)
 	}
 
-	viper.SetDefault("apps.public-albums", "https://albums.ente.io")
-	viper.SetDefault("apps.embed-albums", "https://embed.ente.io")
-	viper.SetDefault("apps.custom-domain.cname", "my.ente.io")
-	viper.SetDefault("apps.public-locker", "https://share.ente.io")
-	viper.SetDefault("apps.public-paste", "https://paste.ente.io")
-	viper.SetDefault("apps.accounts", "https://accounts.ente.io")
-	viper.SetDefault("apps.cast", "https://cast.ente.io")
+	viper.SetDefault("apps.public-albums", "https://albums.ente.com")
+	viper.SetDefault("apps.embed-albums", "https://embed.ente.com")
+	viper.SetDefault("apps.custom-domain.cname", "my.ente.com")
+	viper.SetDefault("apps.public-locker", "https://share.ente.com")
+	viper.SetDefault("apps.public-paste", "https://paste.ente.com")
+	viper.SetDefault("apps.public-memories", "https://memories.ente.com")
+	viper.SetDefault("apps.accounts", "https://accounts.ente.com")
+	viper.SetDefault("apps.accounts-legacy", "https://accounts.ente.io")
+	viper.SetDefault("apps.cast", "https://cast.ente.com")
 	viper.SetDefault("apps.family", "https://family.ente.io")
 
 	setupLogger(environment)
@@ -134,6 +138,8 @@ func main() {
 
 	db := setupDatabase()
 	defer db.Close()
+	latencySensitiveDB := setupLatencySensitiveDatabase()
+	defer latencySensitiveDB.Close()
 
 	hostName, err := os.Hostname()
 	if err != nil {
@@ -173,10 +179,11 @@ func main() {
 	remoteStoreRepository := &remotestore.Repository{DB: db}
 	dataCleanupRepository := &datacleanup.Repository{DB: db}
 	emergencyContactRepository := &emergencyRepo.Repository{DB: db}
+	legacyKitRepository := &legacykitrepo.Repository{DB: db}
 
 	notificationHistoryRepo := &repo.NotificationHistoryRepository{DB: db}
 	queueRepo := &repo.QueueRepository{DB: db}
-	objectRepo := &repo.ObjectRepository{DB: db, QueueRepo: queueRepo}
+	objectRepo := &repo.ObjectRepository{DB: db, LatencySensitiveDB: latencySensitiveDB, QueueRepo: queueRepo}
 	objectCleanupRepo := &repo.ObjectCleanupRepository{DB: db}
 	contactRepository := &contactRepo.Repository{
 		DB:                  db,
@@ -198,6 +205,9 @@ func main() {
 
 	collectionRepo := &repo.CollectionRepository{DB: db, FileRepo: fileRepo, CollectionLinkRepo: collectionLinkRepo,
 		TrashRepo: trashRepo, SecretEncryptionKey: secretEncryptionKeyBytes, QueueRepo: queueRepo, LatencyLogger: latencyLogger}
+	accessCollectionLinkRepo := public.NewCollectionLinkRepository(latencySensitiveDB, viper.GetString("apps.public-albums"))
+	accessCollectionRepo := &repo.CollectionRepository{DB: latencySensitiveDB, CollectionLinkRepo: accessCollectionLinkRepo}
+	accessFileRepo := &repo.FileRepository{DB: latencySensitiveDB}
 	pushRepo := &repo.PushTokenRepository{DB: db}
 	collectionActionRepo := &repo.CollectionActionsRepository{
 		DB: db,
@@ -283,7 +293,7 @@ func main() {
 		UploadResultCache: make(map[int64]bool),
 	}
 
-	accessCtrl := access.NewAccessController(collectionRepo, fileRepo)
+	accessCtrl := access.NewAccessController(accessCollectionRepo, accessFileRepo)
 	commentsRepo := &socialrepo.CommentsRepository{DB: db}
 	reactionsRepo := &socialrepo.ReactionsRepository{DB: db}
 	anonUsersRepo := &socialrepo.AnonUsersRepository{DB: db}
@@ -459,6 +469,12 @@ func main() {
 		Repo:     passkeysRepo,
 		UserRepo: userRepo,
 	}
+	legacyKitController := &legacykitctrl.Controller{
+		Repo:              legacyKitRepository,
+		UserRepo:          userRepo,
+		UserCtrl:          userController,
+		PasskeyController: passkeyCtrl,
+	}
 
 	authMiddleware := middleware.AuthMiddleware{UserAuthRepo: userAuthRepo, Cache: authCache, UserController: userController}
 	collectionLinkMiddleware := middleware.CollectionLinkMiddleware{
@@ -569,14 +585,15 @@ func main() {
 		FileUrlCtrl:  fileLinkCtrl,
 	}
 	pasteHandler := &api.PasteHandler{Controller: pasteCtrl}
+	privateAPI.GET("/files/upload-eligibility", fileHandler.ValidateUploadEligibility)
 	privateAPI.GET("/files/upload-urls", fileHandler.GetUploadURLs)
 	privateAPI.GET("/files/multipart-upload-urls", fileHandler.GetMultipartUploadURLs)
 	privateAPI.POST("/files/upload-url", fileHandler.GetUploadURLV2)
 	privateAPI.POST("/files/multipart-upload-url", fileHandler.GetMultipartUploadURLV2)
 	privateAPI.GET("/files/download/:fileID", fileHandler.Get)
-	privateAPI.GET("/files/download/v2/:fileID", fileHandler.Get)
+	privateAPI.GET("/files/download/v2/:fileID", fileHandler.GetUsingFusedLookup)
 	privateAPI.GET("/files/preview/:fileID", fileHandler.GetThumbnail)
-	privateAPI.GET("/files/preview/v2/:fileID", fileHandler.GetThumbnail)
+	privateAPI.GET("/files/preview/v2/:fileID", fileHandler.GetThumbnailUsingFusedLookup)
 
 	privateAPI.POST("/files/share-url", fileHandler.ShareUrl)
 	privateAPI.GET("/files/share-url", fileHandler.GetUrls)
@@ -844,6 +861,9 @@ func main() {
 	emergencyHandler := &api.EmergencyHandler{
 		Controller: emergencyCtrl,
 	}
+	legacyKitHandler := &api.LegacyKitHandler{
+		Controller: legacyKitController,
+	}
 
 	privateAPI.POST("/emergency-contacts/add", emergencyHandler.AddContact)
 	privateAPI.GET("/emergency-contacts/info", emergencyHandler.GetInfo)
@@ -856,6 +876,20 @@ func main() {
 	privateAPI.GET("/emergency-contacts/recovery-info/:id", emergencyHandler.GetRecoveryInfo)
 	privateAPI.POST("/emergency-contacts/init-change-password", emergencyHandler.InitChangePassword)
 	privateAPI.POST("/emergency-contacts/change-password", emergencyHandler.ChangePassword)
+	privateAPI.POST("/legacy-kits", legacyKitHandler.Create)
+	privateAPI.GET("/legacy-kits", legacyKitHandler.List)
+	privateAPI.GET("/legacy-kits/:id/download", legacyKitHandler.DownloadContent)
+	privateAPI.GET("/legacy-kits/:id/download-content", legacyKitHandler.DownloadContent)
+	privateAPI.GET("/legacy-kits/:id/recovery-session", legacyKitHandler.OwnerRecoverySession)
+	privateAPI.POST("/legacy-kits/update-recovery-notice", legacyKitHandler.UpdateRecoveryNotice)
+	privateAPI.POST("/legacy-kits/block-recovery", legacyKitHandler.BlockRecovery)
+	privateAPI.DELETE("/legacy-kits/:id", legacyKitHandler.Delete)
+	publicAPI.POST("/legacy-kits/recovery/challenge", legacyKitHandler.CreateChallenge)
+	publicAPI.POST("/legacy-kits/recovery/open", legacyKitHandler.OpenRecovery)
+	publicAPI.POST("/legacy-kits/recovery/session", legacyKitHandler.Session)
+	publicAPI.POST("/legacy-kits/recovery/info", legacyKitHandler.RecoveryInfo)
+	publicAPI.POST("/legacy-kits/recovery/init-change-password", legacyKitHandler.InitChangePassword)
+	publicAPI.POST("/legacy-kits/recovery/change-password", legacyKitHandler.ChangePassword)
 	billingHandler := &api.BillingHandler{
 		Controller:          billingController,
 		AppStoreController:  appStoreController,
@@ -1016,10 +1050,11 @@ func main() {
 		trashController, pushController, objectController, dataCleanupController, storageBonusCtrl, emergencyCtrl,
 		embeddingController, healthCheckHandler, castDb, inactiveUserOrchestrator)
 
-	// Create a new collector, the name will be used as a label on the metrics
-	collector := sqlstats.NewStatsCollector("prod_db", db)
-	// Register it with Prometheus
-	prometheus.MustRegister(collector)
+	// Create new collectors, the names will be used as labels on the metrics
+	primaryDBCollector := sqlstats.NewStatsCollector("prod_db", db)
+	latencySensitiveDBCollector := sqlstats.NewStatsCollector("latency_sensitive_db", latencySensitiveDB)
+	// Register them with Prometheus
+	prometheus.MustRegister(primaryDBCollector, latencySensitiveDBCollector)
 
 	http.Handle("/metrics", promhttp.Handler())
 	go http.ListenAndServe(":2112", nil)
@@ -1117,12 +1152,37 @@ func setupDatabase() *sql.DB {
 		panic(err)
 	}
 
-	db.SetMaxIdleConns(6)
-	db.SetMaxOpenConns(45)
+	db.SetMaxIdleConns(30)
+	db.SetMaxOpenConns(60)
 	db.SetConnMaxLifetime(30 * time.Minute)
 	db.SetConnMaxIdleTime(10 * time.Minute)
 
 	log.Println("Database was configured successfully.")
+
+	return db
+}
+
+func setupLatencySensitiveDatabase() *sql.DB {
+	log.Println("Setting up latency sensitive db")
+	db, err := sql.Open("postgres", config.GetPGInfo())
+
+	if err != nil {
+		log.Panic(err)
+		panic(err)
+	}
+	log.Println("Connected to latency sensitive DB")
+	err = db.Ping()
+	if err != nil {
+		panic(err)
+	}
+	log.Println("Pinged latency sensitive DB")
+
+	db.SetMaxIdleConns(50)
+	db.SetMaxOpenConns(100)
+	db.SetConnMaxLifetime(30 * time.Minute)
+	db.SetConnMaxIdleTime(10 * time.Minute)
+
+	log.Println("Latency sensitive database was configured successfully.")
 
 	return db
 }
@@ -1298,8 +1358,8 @@ func cors() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		c.Writer.Header().Set("Access-Control-Allow-Origin", c.GetHeader("Origin"))
 		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
-		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, X-Auth-Token, X-Auth-Access-Token, X-Cast-Access-Token, X-Auth-Access-Token-JWT, X-Client-Package, X-Client-Version, X-Paste-Consume, Authorization, accept, origin, Cache-Control, X-Requested-With, upgrade-insecure-requests, Range")
-		c.Writer.Header().Set("Access-Control-Expose-Headers", "X-Request-Id")
+		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, X-Auth-Token, X-Auth-Access-Token, X-Cast-Access-Token, X-Auth-Access-Token-JWT, X-Auth-Link-Device-Token, X-Client-Package, X-Client-Version, X-Paste-Consume, Authorization, accept, origin, Cache-Control, X-Requested-With, upgrade-insecure-requests, Range")
+		c.Writer.Header().Set("Access-Control-Expose-Headers", "X-Request-Id, X-Ente-Link-Device-Token")
 		c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS, GET, PUT, PATCH, DELETE")
 		c.Writer.Header().Set("Access-Control-Max-Age", "1728000")
 

@@ -62,11 +62,9 @@ class _MapViewState extends State<MapView> {
   }
 
   void onChange(LatLngBounds bounds) {
-    _debouncer.run(
-      () async {
-        widget.updateVisibleImages(bounds);
-      },
-    );
+    _debouncer.run(() async {
+      widget.updateVisibleImages(bounds);
+    });
   }
 
   @override
@@ -107,6 +105,7 @@ class _MapViewState extends State<MapView> {
                 alignment: Alignment.topCenter,
                 maxClusterRadius: 100,
                 showPolygon: false,
+                spiderfyCluster: false,
                 size: widget.markerSize,
                 padding: const EdgeInsets.all(80),
                 markers: _markers,
@@ -136,9 +135,7 @@ class _MapViewState extends State<MapView> {
               padding: EdgeInsets.only(
                 bottom: widget.bottomSheetDraggableAreaHeight,
               ),
-              child: OSMTileAttributes(
-                options: widget.mapAttributionOptions,
-              ),
+              child: OSMTileAttributes(options: widget.mapAttributionOptions),
             ),
           ],
         ),

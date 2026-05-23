@@ -11,7 +11,7 @@ import "package:photos/services/location_service.dart";
 class MemoriesComputationContext {
   final Map<int, EnteFile> allFileIdsToFile;
   final Set<int> collectionIDsToExclude;
-  final bool isOfflineMode;
+  final bool isLocalGalleryMode;
   final bool mlEnabled;
   final DateTime now;
   final MemoriesCache oldCache;
@@ -33,7 +33,7 @@ class MemoriesComputationContext {
   const MemoriesComputationContext({
     required this.allFileIdsToFile,
     required this.collectionIDsToExclude,
-    required this.isOfflineMode,
+    required this.isLocalGalleryMode,
     required this.mlEnabled,
     required this.now,
     required this.oldCache,
@@ -60,9 +60,9 @@ class MemoriesComputationContext {
       allFileIdsToFile: Map<int, EnteFile>.from(
         args["allFileIdsToFile"] as Map,
       ),
-      collectionIDsToExclude:
-          (args["collectionIDsToExclude"] as Set).cast<int>(),
-      isOfflineMode: args["isOfflineMode"] ?? false,
+      collectionIDsToExclude: (args["collectionIDsToExclude"] as Set)
+          .cast<int>(),
+      isLocalGalleryMode: args["isLocalGalleryMode"] ?? false,
       mlEnabled: args["mlEnabled"] ?? false,
       now: args["now"] as DateTime,
       oldCache: args["oldCache"] as MemoriesCache,
@@ -82,8 +82,8 @@ class MemoriesComputationContext {
         args["clusterIdToFaceIDs"] as Map,
       ),
       assignedClusterIDs: (args["assignedClusterIDs"] as Set).cast<String>(),
-      allImageEmbeddings:
-          (args["allImageEmbeddings"] as List).cast<EmbeddingVector>(),
+      allImageEmbeddings: (args["allImageEmbeddings"] as List)
+          .cast<EmbeddingVector>(),
       clipPositiveTextVector: args["clipPositiveTextVector"] as Vector,
       clipPeopleActivityVectors: Map<PeopleActivity, Vector>.from(
         args["clipPeopleActivityVectors"] as Map,
@@ -98,7 +98,7 @@ class MemoriesComputationContext {
     return <String, dynamic>{
       "allFileIdsToFile": allFileIdsToFile,
       "collectionIDsToExclude": collectionIDsToExclude,
-      "isOfflineMode": isOfflineMode,
+      "isLocalGalleryMode": isLocalGalleryMode,
       "mlEnabled": mlEnabled,
       "now": now,
       "oldCache": oldCache,

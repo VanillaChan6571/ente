@@ -48,10 +48,10 @@ class _UserCollectionsTabState extends State<UserCollectionsTab>
   final _logger = Logger((_UserCollectionsTabState).toString());
   late StreamSubscription<LocalPhotosUpdatedEvent> _localFilesSubscription;
   late StreamSubscription<CollectionUpdatedEvent>
-      _collectionUpdatesSubscription;
+  _collectionUpdatesSubscription;
   late StreamSubscription<UserLoggedOutEvent> _loggedOutEvent;
   late StreamSubscription<FavoritesServiceInitCompleteEvent>
-      _favoritesServiceInitCompleteEvent;
+  _favoritesServiceInitCompleteEvent;
   late StreamSubscription<AlbumSortOrderChangeEvent> _albumSortOrderChangeEvent;
   late StreamSubscription<BackupFoldersUpdatedEvent> _backupFoldersUpdatedEvent;
   late StreamSubscription<AppModeChangedEvent> _appModeChangedEvent;
@@ -64,49 +64,53 @@ class _UserCollectionsTabState extends State<UserCollectionsTab>
     leading: true,
   );
 
-  static const int _kOnEnteItemLimitCount = 12;
   @override
   void initState() {
     super.initState();
-    _localFilesSubscription =
-        Bus.instance.on<LocalPhotosUpdatedEvent>().listen((event) {
-      _debouncer.run(() async {
-        if (mounted) {
-          _loadReason = event.reason;
-          setState(() {});
-        }
-      });
-    });
-    _collectionUpdatesSubscription =
-        Bus.instance.on<CollectionUpdatedEvent>().listen((event) {
-      _debouncer.run(() async {
-        if (mounted) {
-          _loadReason = event.reason;
-          setState(() {});
-        }
-      });
-    });
+    _localFilesSubscription = Bus.instance.on<LocalPhotosUpdatedEvent>().listen(
+      (event) {
+        _debouncer.run(() async {
+          if (mounted) {
+            _loadReason = event.reason;
+            setState(() {});
+          }
+        });
+      },
+    );
+    _collectionUpdatesSubscription = Bus.instance
+        .on<CollectionUpdatedEvent>()
+        .listen((event) {
+          _debouncer.run(() async {
+            if (mounted) {
+              _loadReason = event.reason;
+              setState(() {});
+            }
+          });
+        });
     _loggedOutEvent = Bus.instance.on<UserLoggedOutEvent>().listen((event) {
       _loadReason = event.reason;
       setState(() {});
     });
-    _favoritesServiceInitCompleteEvent =
-        Bus.instance.on<FavoritesServiceInitCompleteEvent>().listen((event) {
-      _debouncer.run(() async {
-        _loadReason = event.reason;
-        setState(() {});
-      });
-    });
-    _albumSortOrderChangeEvent =
-        Bus.instance.on<AlbumSortOrderChangeEvent>().listen((event) {
-      _loadReason = event.reason;
-      setState(() {});
-    });
-    _backupFoldersUpdatedEvent =
-        Bus.instance.on<BackupFoldersUpdatedEvent>().listen((event) {
-      _loadReason = event.reason;
-      if (mounted) setState(() {});
-    });
+    _favoritesServiceInitCompleteEvent = Bus.instance
+        .on<FavoritesServiceInitCompleteEvent>()
+        .listen((event) {
+          _debouncer.run(() async {
+            _loadReason = event.reason;
+            setState(() {});
+          });
+        });
+    _albumSortOrderChangeEvent = Bus.instance
+        .on<AlbumSortOrderChangeEvent>()
+        .listen((event) {
+          _loadReason = event.reason;
+          setState(() {});
+        });
+    _backupFoldersUpdatedEvent = Bus.instance
+        .on<BackupFoldersUpdatedEvent>()
+        .listen((event) {
+          _loadReason = event.reason;
+          if (mounted) setState(() {});
+        });
     _appModeChangedEvent = Bus.instance.on<AppModeChangedEvent>().listen((_) {
       _loadReason = "AppModeChangedEvent";
       if (mounted) {
@@ -119,17 +123,17 @@ class _UserCollectionsTabState extends State<UserCollectionsTab>
   Widget build(BuildContext context) {
     super.build(context);
     _logger.info("Building, trigger: $_loadReason");
-    final bool offlineUiMode =
-        isOfflineMode && !Configuration.instance.hasConfiguredAccount();
+    final bool localGalleryMode =
+        isLocalGalleryMode && !Configuration.instance.hasConfiguredAccount();
     return FutureBuilder<List<Collection>>(
-      future: offlineUiMode
+      future: localGalleryMode
           ? Future.value(<Collection>[])
           : CollectionsService.instance.getCollectionForOnEnteSection(),
       builder: (context, snapshot) {
         if (snapshot.hasData) {
           return _getCollectionsGalleryWidget(
             snapshot.data!,
-            offlineUiMode: offlineUiMode,
+            localGalleryMode: localGalleryMode,
           );
         } else if (snapshot.hasError) {
           return Text(snapshot.error.toString());
@@ -142,16 +146,16 @@ class _UserCollectionsTabState extends State<UserCollectionsTab>
 
   Widget _getCollectionsGalleryWidget(
     List<Collection> collections, {
-    required bool offlineUiMode,
+    required bool localGalleryMode,
   }) {
-    final TextStyle trashAndHiddenTextStyle =
-        Theme.of(context).textTheme.titleMedium!.copyWith(
-              color: Theme.of(context)
-                  .textTheme
-                  .titleMedium!
-                  .color!
-                  .withValues(alpha: 0.5),
-            );
+    final TextStyle trashAndHiddenTextStyle = Theme.of(context)
+        .textTheme
+        .titleMedium!
+        .copyWith(
+          color: Theme.of(
+            context,
+          ).textTheme.titleMedium!.color!.withValues(alpha: 0.5),
+        );
     final colorScheme = getEnteColorScheme(context);
 
     return Stack(
@@ -184,8 +188,8 @@ class _UserCollectionsTabState extends State<UserCollectionsTab>
                     title: AppLocalizations.of(context).onDevice,
                   ),
                 ),
-                trailingWidget: backupPreferenceService
-                        .hasSkippedOnboardingPermission
+                trailingWidget:
+                    backupPreferenceService.hasSkippedOnboardingPermission
                     ? null
                     : Row(
                         mainAxisSize: MainAxisSize.min,
@@ -200,8 +204,9 @@ class _UserCollectionsTabState extends State<UserCollectionsTab>
                                   context,
                                   DeviceFolderVerticalGridView(
                                     appTitle: SectionTitle(
-                                      title:
-                                          AppLocalizations.of(context).onDevice,
+                                      title: AppLocalizations.of(
+                                        context,
+                                      ).onDevice,
                                     ),
                                     tag: "OnDeviceAppTitle",
                                     startInSearchMode: true,
@@ -222,7 +227,7 @@ class _UserCollectionsTabState extends State<UserCollectionsTab>
             const SliverToBoxAdapter(child: DeviceFoldersGridView()),
             SliverToBoxAdapter(
               child: SectionOptions(
-                onTap: offlineUiMode
+                onTap: localGalleryMode
                     ? null
                     : () {
                         unawaited(
@@ -239,7 +244,7 @@ class _UserCollectionsTabState extends State<UserCollectionsTab>
                         );
                       },
                 SectionTitle(titleWithBrand: getOnEnteSection(context)),
-                trailingWidget: offlineUiMode
+                trailingWidget: localGalleryMode
                     ? null
                     : Row(
                         mainAxisSize: MainAxisSize.min,
@@ -274,25 +279,20 @@ class _UserCollectionsTabState extends State<UserCollectionsTab>
               ),
             ),
             SliverToBoxAdapter(child: DeleteEmptyAlbums(collections)),
-            offlineUiMode
-                ? const SliverToBoxAdapter(
-                    child: EmptyOnEnteSection(),
-                  )
+            localGalleryMode
+                ? const SliverToBoxAdapter(child: EmptyOnEnteSection())
                 : Configuration.instance.hasConfiguredAccount()
-                    ? CollectionsFlexiGridViewWidget(
-                        collections,
-                        displayLimitCount: _kOnEnteItemLimitCount,
-                        selectedAlbums: widget.selectedAlbums,
-                        shrinkWrap: true,
-                        shouldShowCreateAlbum: true,
-                        enableSelectionMode: true,
-                      )
-                    : const SliverToBoxAdapter(child: EmptyState()),
-            if (!offlineUiMode) ...[
+                ? CollectionsFlexiGridViewWidget(
+                    collections,
+                    selectedAlbums: widget.selectedAlbums,
+                    shrinkWrap: true,
+                    shouldShowCreateAlbum: true,
+                    enableSelectionMode: true,
+                  )
+                : const SliverToBoxAdapter(child: EmptyState()),
+            if (!localGalleryMode) ...[
               SliverToBoxAdapter(
-                child: Divider(
-                  color: colorScheme.strokeFaint,
-                ),
+                child: Divider(color: colorScheme.strokeFaint),
               ),
               const SliverToBoxAdapter(child: SizedBox(height: 12)),
               SliverToBoxAdapter(
@@ -313,8 +313,9 @@ class _UserCollectionsTabState extends State<UserCollectionsTab>
               ),
             ],
             SliverToBoxAdapter(
-              child:
-                  SizedBox(height: 64 + MediaQuery.paddingOf(context).bottom),
+              child: SizedBox(
+                height: 64 + MediaQuery.paddingOf(context).bottom,
+              ),
             ),
           ],
         ),

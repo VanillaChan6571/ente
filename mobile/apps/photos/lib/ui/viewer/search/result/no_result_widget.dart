@@ -28,17 +28,19 @@ class _NoResultWidgetState extends State<NoResultWidget> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    InheritedAllSectionsExamples.of(context)
-        .allSectionsExamplesFuture
-        .then((value) {
-      if (value.isEmpty) return;
+    InheritedAllSectionsExamples.of(context).allSectionsExamplesFuture.then((
+      value,
+    ) {
+      final sectionResultsByType = value.sectionResults;
+      if (sectionResultsByType.isEmpty) return;
       for (int i = 0; i < searchTypes.length; i++) {
         final SectionType sectionType = searchTypes[i];
         final int sectionIndex = SectionType.values.indexOf(sectionType);
-        if (sectionIndex < 0 || sectionIndex >= value.length) {
+        if (sectionIndex < 0 || sectionIndex >= sectionResultsByType.length) {
           continue;
         }
-        final List<SearchResult> sectionResults = value[sectionIndex];
+        final List<SearchResult> sectionResults =
+            sectionResultsByType[sectionIndex];
         final querySuggestions = <String>[];
         for (int j = 0; j < 2 && j < sectionResults.length; j++) {
           querySuggestions.add(sectionResults[j].name());
@@ -57,29 +59,24 @@ class _NoResultWidgetState extends State<NoResultWidget> {
   Widget build(BuildContext context) {
     final textTheme = getEnteTextTheme(context);
     final searchTypeAndSuggestion = <Widget>[];
-    searchTypeToQuerySuggestion.forEach(
-      (key, value) {
-        searchTypeAndSuggestion.add(
-          Row(
-            children: [
-              Text(
-                key,
-                style: textTheme.bodyMuted,
+    searchTypeToQuerySuggestion.forEach((key, value) {
+      searchTypeAndSuggestion.add(
+        Row(
+          children: [
+            Text(key, style: textTheme.bodyMuted),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                formatList(value),
+                style: textTheme.miniMuted,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
-              const SizedBox(width: 6),
-              Flexible(
-                child: Text(
-                  formatList(value),
-                  style: textTheme.miniMuted,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
+            ),
+          ],
+        ),
+      );
+    });
     return Scaffold(
       body: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -96,8 +93,9 @@ class _NoResultWidgetState extends State<NoResultWidget> {
                 const SizedBox(height: 6),
                 searchTypeToQuerySuggestion.isNotEmpty
                     ? Text(
-                        AppLocalizations.of(context)
-                            .modifyYourQueryOrTrySearchingFor,
+                        AppLocalizations.of(
+                          context,
+                        ).modifyYourQueryOrTrySearchingFor,
                         style: textTheme.smallMuted,
                       )
                     : const SizedBox.shrink(),

@@ -27,11 +27,12 @@ class SettingsSearchRegistry {
   static List<SettingsSearchItem> getSearchableItems(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final hasLoggedIn = Configuration.instance.isLoggedIn();
-    final isOffline = isOfflineMode;
+    final isLocalGallery = isLocalGalleryMode;
+    final showThemeControls = Platform.isAndroid || kDebugMode;
     final items = <SettingsSearchItem>[];
 
     // Account settings
-    if (hasLoggedIn && !isOffline) {
+    if (hasLoggedIn && !isLocalGallery) {
       items.add(
         SettingsSearchItem(
           title: l10n.account,
@@ -101,7 +102,7 @@ class SettingsSearchRegistry {
     }
 
     // Backup settings
-    if (hasLoggedIn && !isOffline) {
+    if (hasLoggedIn && !isLocalGallery) {
       items.add(
         SettingsSearchItem(
           title: l10n.backup,
@@ -214,7 +215,7 @@ class SettingsSearchRegistry {
     );
 
     items.addAll([
-      if (Configuration.instance.hasConfiguredAccount() && !isOffline)
+      if (Configuration.instance.hasConfiguredAccount() && !isLocalGallery)
         SettingsSearchItem(
           title: l10n.twofactor,
           subtitle: l10n.security,
@@ -224,7 +225,7 @@ class SettingsSearchRegistry {
           isSubPage: true,
           keywords: ["2fa", "two factor", "authenticator", "otp"],
         ),
-      if (Configuration.instance.hasConfiguredAccount() && !isOffline)
+      if (Configuration.instance.hasConfiguredAccount() && !isLocalGallery)
         SettingsSearchItem(
           title: l10n.emailVerificationToggle,
           subtitle: l10n.security,
@@ -234,7 +235,7 @@ class SettingsSearchRegistry {
           isSubPage: true,
           keywords: ["email", "verification", "mfa"],
         ),
-      if (Configuration.instance.hasConfiguredAccount() && !isOffline)
+      if (Configuration.instance.hasConfiguredAccount() && !isLocalGallery)
         SettingsSearchItem(
           title: context.l10n.passkey,
           subtitle: l10n.security,
@@ -262,7 +263,7 @@ class SettingsSearchRegistry {
         isSubPage: true,
         keywords: ["lock", "pin", "biometric", "face id", "fingerprint"],
       ),
-      if (Configuration.instance.hasConfiguredAccount() && !isOffline)
+      if (Configuration.instance.hasConfiguredAccount() && !isLocalGallery)
         SettingsSearchItem(
           title: l10n.activeSessions,
           subtitle: l10n.security,
@@ -281,11 +282,13 @@ class SettingsSearchRegistry {
         sectionPath: l10n.appearance,
         icon: HugeIcons.strokeRoundedPaintBoard,
         routeBuilder: (_) => const AppearanceSettingsPage(),
-        keywords: ["theme", "dark mode", "light mode", "app icon"],
+        keywords: showThemeControls
+            ? ["theme", "dark mode", "light mode", "app icon"]
+            : ["app icon"],
       ),
     );
 
-    if (Platform.isAndroid || kDebugMode) {
+    if (showThemeControls) {
       items.add(
         SettingsSearchItem(
           title: l10n.theme,
@@ -327,9 +330,8 @@ class SettingsSearchRegistry {
         subtitle: l10n.appearance,
         sectionPath: "${l10n.appearance} > ${l10n.gallery}",
         icon: HugeIcons.strokeRoundedDashboardSquare02,
-        routeBuilder: (_) => const GallerySettingsScreen(
-          fromGalleryLayoutSettingsCTA: false,
-        ),
+        routeBuilder: (_) =>
+            const GallerySettingsScreen(fromGalleryLayoutSettingsCTA: false),
         isSubPage: true,
         keywords: ["grid size", "group by", "layout"],
       ),
@@ -342,9 +344,8 @@ class SettingsSearchRegistry {
         subtitle: l10n.gallery,
         sectionPath: "${l10n.appearance} > ${l10n.gallery}",
         icon: HugeIcons.strokeRoundedDashboardSquare02,
-        routeBuilder: (_) => const GallerySettingsScreen(
-          fromGalleryLayoutSettingsCTA: false,
-        ),
+        routeBuilder: (_) =>
+            const GallerySettingsScreen(fromGalleryLayoutSettingsCTA: false),
         isSubPage: true,
         keywords: ["grid", "size", "columns", "thumbnail"],
       ),
@@ -357,24 +358,22 @@ class SettingsSearchRegistry {
         subtitle: l10n.gallery,
         sectionPath: "${l10n.appearance} > ${l10n.gallery}",
         icon: HugeIcons.strokeRoundedDashboardSquare02,
-        routeBuilder: (_) => const GallerySettingsScreen(
-          fromGalleryLayoutSettingsCTA: false,
-        ),
+        routeBuilder: (_) =>
+            const GallerySettingsScreen(fromGalleryLayoutSettingsCTA: false),
         isSubPage: true,
         keywords: ["group", "day", "month", "year"],
       ),
     );
 
-    if (!isOffline) {
+    if (!isLocalGallery) {
       items.add(
         SettingsSearchItem(
           title: l10n.hideSharedItemsFromHomeGallery,
           subtitle: l10n.gallery,
           sectionPath: "${l10n.appearance} > ${l10n.gallery}",
           icon: HugeIcons.strokeRoundedImage01,
-          routeBuilder: (_) => const GallerySettingsScreen(
-            fromGalleryLayoutSettingsCTA: false,
-          ),
+          routeBuilder: (_) =>
+              const GallerySettingsScreen(fromGalleryLayoutSettingsCTA: false),
           isSubPage: true,
           keywords: ["shared", "hide", "home gallery"],
         ),
@@ -382,7 +381,7 @@ class SettingsSearchRegistry {
     }
 
     // Machine Learning settings
-    if (hasLoggedIn || isOffline) {
+    if (hasLoggedIn || isLocalGallery) {
       items.add(
         SettingsSearchItem(
           title: l10n.machineLearning,
@@ -414,7 +413,7 @@ class SettingsSearchRegistry {
       );
     }
 
-    if (hasLoggedIn || isOffline) {
+    if (hasLoggedIn || isLocalGallery) {
       items.addAll([
         SettingsSearchItem(
           title: l10n.memories,
@@ -445,7 +444,7 @@ class SettingsSearchRegistry {
       ]);
     }
 
-    if (hasLoggedIn && !isOffline) {
+    if (hasLoggedIn && !isLocalGallery) {
       items.addAll([
         SettingsSearchItem(
           title: l10n.notifications,
@@ -559,21 +558,14 @@ class SettingsSearchRegistry {
     }
 
     // Free up space
-    if (hasLoggedIn && !isOffline) {
+    if (hasLoggedIn && !isLocalGallery) {
       items.add(
         SettingsSearchItem(
           title: l10n.freeUpSpace,
           sectionPath: l10n.freeUpSpace,
           icon: HugeIcons.strokeRoundedRocket01,
           routeBuilder: (_) => const FreeUpSpaceOptionsScreen(),
-          keywords: [
-            "storage",
-            "space",
-            "clean",
-            "delete",
-            "local",
-            "device",
-          ],
+          keywords: ["storage", "space", "clean", "delete", "local", "device"],
         ),
       );
 
@@ -611,12 +603,7 @@ class SettingsSearchRegistry {
             icon: HugeIcons.strokeRoundedRocket01,
             routeBuilder: (_) => const FreeUpSpaceOptionsScreen(),
             isSubPage: true,
-            keywords: [
-              "similar",
-              "alike",
-              "resembling",
-              "cleanup",
-            ],
+            keywords: ["similar", "alike", "resembling", "cleanup"],
           ),
         SettingsSearchItem(
           title: l10n.viewLargeFiles,
@@ -777,16 +764,15 @@ class SettingsSearchRegistry {
   ) {
     final l10n = AppLocalizations.of(context);
     final hasLoggedIn = Configuration.instance.isLoggedIn();
-    final isOffline = isOfflineMode;
+    final isLocalGallery = isLocalGalleryMode;
 
     return [
       // Gallery suggestion
       SettingsSearchSuggestion(
         title: l10n.gallery,
         onTap: () => onNavigate(
-          (_) => const GallerySettingsScreen(
-            fromGalleryLayoutSettingsCTA: false,
-          ),
+          (_) =>
+              const GallerySettingsScreen(fromGalleryLayoutSettingsCTA: false),
         ),
       ),
       // App lock suggestion
@@ -795,13 +781,13 @@ class SettingsSearchRegistry {
         onTap: () => onNavigate((_) => const SecuritySettingsPage()),
       ),
       // Free up device space suggestion
-      if (hasLoggedIn && !isOffline)
+      if (hasLoggedIn && !isLocalGallery)
         SettingsSearchSuggestion(
           title: l10n.freeUpDeviceSpace,
           onTap: () => onNavigate((_) => const FreeUpSpaceOptionsScreen()),
         ),
       // Backup settings suggestion
-      if (hasLoggedIn && !isOffline)
+      if (hasLoggedIn && !isLocalGallery)
         SettingsSearchSuggestion(
           title: l10n.backupSettings,
           onTap: () => onNavigate((_) => const BackupSettingsPage()),

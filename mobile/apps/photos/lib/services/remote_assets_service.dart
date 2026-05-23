@@ -2,12 +2,14 @@ import "dart:async";
 import "dart:convert";
 import "dart:io";
 
+import "package:crypto/crypto.dart";
 import "package:dio/dio.dart";
 import "package:flutter/foundation.dart";
 import "package:logging/logging.dart";
 import "package:path_provider/path_provider.dart";
 import "package:photos/core/network/network.dart";
-import "package:photos/service_locator.dart" show flagService, isOfflineMode;
+import "package:photos/service_locator.dart"
+    show flagService, isLocalGalleryMode;
 import "package:synchronized/synchronized.dart";
 
 class RemoteAssetsService {
@@ -26,7 +28,11 @@ class RemoteAssetsService {
   static final RemoteAssetsService instance =
       RemoteAssetsService._privateConstructor();
 
-  Future<File> getAsset(String remotePath, {bool refetch = false}) async {
+  Future<File> getAsset(
+    String remotePath, {
+    bool refetch = false,
+    String? expectedSha256,
+  }) async {
     return _lockFor(remotePath).synchronized(() async {
       final path = await _getLocalPath(remotePath);
       final file = File(path);
@@ -37,20 +43,32 @@ class RemoteAssetsService {
 
       final tempFile = File(_tempPath(path));
       await _downloadFile(remotePath, tempFile.path);
+      await _validateDownloadedFileSha256(tempFile, remotePath, expectedSha256);
       await _replaceFile(tempFile, file);
       await _deleteResumeMetadata(tempFile.path);
       return file;
     });
   }
 
-  Future<String> getAssetPath(String remotePath, {bool refetch = false}) async {
+  Future<String> getAssetPath(
+    String remotePath, {
+    bool refetch = false,
+    String? expectedSha256,
+  }) async {
     await cleanupOldModelsIfNeeded();
-    final file = await getAsset(remotePath, refetch: refetch);
+    final file = await getAsset(
+      remotePath,
+      refetch: refetch,
+      expectedSha256: expectedSha256,
+    );
     return file.path;
   }
 
   ///Returns asset if the remote asset is new compared to the local copy of it
-  Future<File?> getAssetIfUpdated(String remotePath) async {
+  Future<File?> getAssetIfUpdated(
+    String remotePath, {
+    String? expectedSha256,
+  }) async {
     return _lockFor(remotePath).synchronized(() async {
       try {
         final path = await _getLocalPath(remotePath);
@@ -59,6 +77,11 @@ class RemoteAssetsService {
 
         if (!await file.exists()) {
           await _downloadFile(remotePath, tempFile.path);
+          await _validateDownloadedFileSha256(
+            tempFile,
+            remotePath,
+            expectedSha256,
+          );
           await _replaceFile(tempFile, file);
           await _deleteResumeMetadata(tempFile.path);
           return file;
@@ -66,6 +89,11 @@ class RemoteAssetsService {
 
         final existingFileSize = await file.length();
         await _downloadFile(remotePath, tempFile.path);
+        await _validateDownloadedFileSha256(
+          tempFile,
+          remotePath,
+          expectedSha256,
+        );
         final newFileSize = await tempFile.length();
         if (existingFileSize != newFileSize) {
           await _replaceFile(tempFile, file);
@@ -75,6 +103,8 @@ class RemoteAssetsService {
 
         await _clearResumeArtifacts(tempFile.path);
         return null;
+      } on _RemoteAssetHashMismatchException {
+        rethrow;
       } catch (e) {
         _logger.warning("Error getting asset if updated", e);
         return null;
@@ -83,8 +113,10 @@ class RemoteAssetsService {
   }
 
   Future<bool> hasAsset(String remotePath) async {
-    final path = await _getLocalPath(remotePath);
-    return File(path).exists();
+    return _lockFor(remotePath).synchronized(() async {
+      final path = await _getLocalPath(remotePath);
+      return File(path).exists();
+    });
   }
 
   Future<String> _getLocalPath(String remotePath) async {
@@ -118,7 +150,7 @@ class RemoteAssetsService {
         "Retrying $url with single-shot download after disabling resumable mode",
       );
     }
-    final probe = await _probeRemoteAsset(url);
+    final probe = await _probeRemoteAsset(url, savePath);
     final useResumable = allowResume && _shouldUseResumableDownload(probe);
     if (probe != null &&
         probe.totalBytes > _resumableThresholdBytes &&
@@ -127,9 +159,9 @@ class RemoteAssetsService {
         useResumable
             ? "Using resumable download for $url (${probe.totalBytes} bytes)"
             : "Using single-shot download for $url despite resumable "
-                "downloads being enabled (size: ${probe.totalBytes} bytes, "
-                "acceptsRanges: ${probe.acceptsRanges}, "
-                "strongEtag: ${probe.ifRangeValidator != null})",
+                  "downloads being enabled (size: ${probe.totalBytes} bytes, "
+                  "acceptsRanges: ${probe.acceptsRanges}, "
+                  "strongEtag: ${probe.ifRangeValidator != null})",
       );
     }
     if (useResumable) {
@@ -174,7 +206,8 @@ class RemoteAssetsService {
   Future<void> cleanupSelectedModels(List<String> modelRemotePaths) async {
     for (final remotePath in modelRemotePaths) {
       final localPath = await _getLocalPath(remotePath);
-      final hasArtifacts = await File(localPath).exists() ||
+      final hasArtifacts =
+          await File(localPath).exists() ||
           await File(_tempPath(localPath)).exists() ||
           await File(_resumeMetadataPath(_tempPath(localPath))).exists();
       if (hasArtifacts) {
@@ -189,7 +222,7 @@ class RemoteAssetsService {
   Dio get _dio => NetworkClient.instance.getDio();
 
   bool get _resumableDownloadsEnabled =>
-      isOfflineMode || flagService.internalUser;
+      isLocalGalleryMode || flagService.internalUser;
 
   Lock _lockFor(String remotePath) =>
       _assetLocks.putIfAbsent(remotePath, Lock.new);
@@ -205,35 +238,62 @@ class RemoteAssetsService {
     return probe.totalBytes > _resumableThresholdBytes && probe.canResume;
   }
 
-  Future<_RemoteAssetProbe?> _probeRemoteAsset(String url) async {
+  Future<_RemoteAssetProbe?> _probeRemoteAsset(
+    String url,
+    String savePath,
+  ) async {
     if (!_resumableDownloadsEnabled) {
       return null;
     }
 
     try {
       final response = await _dio.head<void>(url);
-      final probe = _RemoteAssetProbe.fromHeaders(
-        url,
-        response.headers,
-      );
-      if (probe == null && _shouldLogProbeDiagnosticsFor(url)) {
+      final probe = _RemoteAssetProbe.fromHeaders(url, response.headers);
+      if (_shouldLogProbeDiagnosticsFor(url)) {
         final contentLength =
             response.headers.value(HttpHeaders.contentLengthHeader) ??
-                "missing";
+            "missing";
         final acceptRanges =
             response.headers.value("accept-ranges")?.trim() ?? "missing";
         final etag = response.headers.value(HttpHeaders.etagHeader)?.trim();
-        _logger.info(
-          "HEAD probe did not qualify $url for resumable download "
-          "(contentLength: $contentLength, acceptRanges: $acceptRanges, "
-          "strongEtag: ${_strongETag(etag) != null})",
-        );
+        if (probe == null) {
+          _logger.info(
+            "HEAD probe did not qualify $url for resumable download "
+            "(contentLength: $contentLength, acceptRanges: $acceptRanges, "
+            "strongEtag: ${_strongETag(etag) != null})",
+          );
+        } else {
+          _logger.info(
+            "HEAD probe succeeded for $url "
+            "(contentLength: ${probe.totalBytes}, "
+            "acceptsRanges: ${probe.acceptsRanges}, "
+            "strongEtag: ${probe.ifRangeValidator != null})",
+          );
+        }
       }
       return probe;
     } catch (e, s) {
+      final hasResumeArtifacts = await _hasCompleteResumeArtifacts(savePath);
+      if (_isConnectionFailure(e) && hasResumeArtifacts) {
+        if (_shouldLogProbeDiagnosticsFor(url)) {
+          _logger.warning(
+            "HEAD probe connection failed for $url, preserving resume "
+            "artifacts for retry "
+            "(tempBytes: ${await _safeFileLength(savePath)}, "
+            "metadataExists: ${await _resumeMetadataExists(savePath)})",
+            e,
+            s,
+          );
+        }
+        Error.throwWithStackTrace(e, s);
+      }
       if (_shouldLogProbeDiagnosticsFor(url)) {
         _logger.warning(
-          "HEAD probe failed for $url, falling back to single-shot download",
+          _isConnectionFailure(e)
+              ? "HEAD probe connection failed for $url without complete "
+                    "resume artifacts, falling back to single-shot download"
+              : "HEAD probe failed for $url, falling back to single-shot "
+                    "download",
           e,
           s,
         );
@@ -250,10 +310,7 @@ class RemoteAssetsService {
     _RemoteAssetProbe probe,
   ) async {
     final tempFile = File(savePath);
-    final existingBytes = await _prepareTempFileForResume(
-      tempFile,
-      probe,
-    );
+    final existingBytes = await _prepareTempFileForResume(tempFile, probe);
     if (existingBytes > 0 && _shouldLogProbeDiagnosticsFor(url)) {
       _logger.info(
         "Resuming download for $url from $existingBytes / ${probe.totalBytes} bytes",
@@ -281,7 +338,10 @@ class RemoteAssetsService {
       }
       if (_shouldLogProbeDiagnosticsFor(url)) {
         _logger.severe(
-          "Resumable download failed for $url at $existingBytes / ${probe.totalBytes} bytes",
+          "Resumable download failed for $url "
+          "(startBytes: $existingBytes, "
+          "tempBytes: ${await _safeFileLength(savePath)}, "
+          "expectedBytes: ${probe.totalBytes})",
           e,
           s,
         );
@@ -438,6 +498,46 @@ class RemoteAssetsService {
     }
   }
 
+  Future<void> _validateDownloadedFileSha256(
+    File file,
+    String url,
+    String? expectedSha256,
+  ) async {
+    if (expectedSha256 == null) {
+      return;
+    }
+
+    try {
+      await _validateExpectedSha256(file, url, expectedSha256);
+    } on _RemoteAssetHashMismatchException {
+      await _clearResumeArtifacts(file.path);
+      rethrow;
+    }
+  }
+
+  Future<void> _validateExpectedSha256(
+    File file,
+    String url,
+    String expectedSha256,
+  ) async {
+    final actualSha256 = await _sha256Hex(file);
+    if (!_hashesMatch(actualSha256, expectedSha256)) {
+      throw _RemoteAssetHashMismatchException(
+        url: url,
+        expectedSha256: expectedSha256,
+        actualSha256: actualSha256,
+      );
+    }
+  }
+
+  Future<String> _sha256Hex(File file) async {
+    final digest = await sha256.bind(file.openRead()).first;
+    return digest.toString();
+  }
+
+  bool _hashesMatch(String actualSha256, String expectedSha256) =>
+      actualSha256.toLowerCase() == expectedSha256.toLowerCase();
+
   void _validateResumedResponseHeaders(
     Headers headers, {
     required int expectedStart,
@@ -471,6 +571,46 @@ class RemoteAssetsService {
     await _deleteResumeMetadata(tempPath);
   }
 
+  Future<bool> _hasCompleteResumeArtifacts(String tempPath) async {
+    return await File(tempPath).exists() &&
+        await File(_resumeMetadataPath(tempPath)).exists();
+  }
+
+  Future<bool> _resumeMetadataExists(String tempPath) async {
+    return File(_resumeMetadataPath(tempPath)).exists();
+  }
+
+  Future<int> _safeFileLength(String path) async {
+    try {
+      final file = File(path);
+      if (!await file.exists()) {
+        return 0;
+      }
+      return await file.length();
+    } catch (_) {
+      return -1;
+    }
+  }
+
+  bool _isConnectionFailure(Object error) {
+    if (error is SocketException || error is TimeoutException) {
+      return true;
+    }
+    if (error is DioException) {
+      if (error.type == DioExceptionType.connectionError ||
+          error.type == DioExceptionType.connectionTimeout ||
+          error.type == DioExceptionType.sendTimeout ||
+          error.type == DioExceptionType.receiveTimeout) {
+        return true;
+      }
+      final innerError = error.error;
+      if (innerError != null && !identical(innerError, error)) {
+        return _isConnectionFailure(innerError);
+      }
+    }
+    return false;
+  }
+
   Future<void> _replaceFile(File source, File target) async {
     await target.parent.create(recursive: true);
     // Keep the swap atomic so readers never observe the target path missing.
@@ -499,7 +639,7 @@ class RemoteAssetsService {
 
   bool _shouldLogProbeDiagnosticsFor(String url) {
     final host = Uri.tryParse(url)?.host;
-    return host == "models.ente.io";
+    return host == "models.ente.com";
   }
 }
 
@@ -518,10 +658,7 @@ class _RemoteAssetProbe {
     required this.etag,
   });
 
-  static _RemoteAssetProbe? fromHeaders(
-    String url,
-    Headers headers,
-  ) {
+  static _RemoteAssetProbe? fromHeaders(String url, Headers headers) {
     final contentLength = headers.value(HttpHeaders.contentLengthHeader);
     final totalBytes = int.tryParse(contentLength ?? "");
     if (totalBytes == null || totalBytes <= 0) {
@@ -556,11 +693,7 @@ class _RemoteAssetProbe {
   bool get canResume => acceptsRanges && ifRangeValidator != null;
 
   Map<String, dynamic> toJson() {
-    return {
-      "url": url,
-      "totalBytes": totalBytes,
-      "etag": etag,
-    };
+    return {"url": url, "totalBytes": totalBytes, "etag": etag};
   }
 
   bool matches(_RemoteAssetProbe other) {
@@ -577,4 +710,22 @@ class _ResumeValidationException implements Exception {
 
   @override
   String toString() => "ResumeValidationException: $message";
+}
+
+class _RemoteAssetHashMismatchException implements Exception {
+  const _RemoteAssetHashMismatchException({
+    required this.url,
+    required this.expectedSha256,
+    required this.actualSha256,
+  });
+
+  final String url;
+  final String expectedSha256;
+  final String actualSha256;
+
+  @override
+  String toString() {
+    return "RemoteAssetHashMismatchException: Expected SHA-256 "
+        "$expectedSha256 for $url, found $actualSha256";
+  }
 }

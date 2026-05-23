@@ -10,17 +10,13 @@ import 'package:ente_strings/ente_strings.dart';
 import 'package:ente_ui/theme/ente_theme.dart';
 import 'package:ente_ui/utils/dialog_util.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/scheduler.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:logging/logging.dart';
 
 class LockScreen extends StatefulWidget {
   final BaseConfiguration config;
 
-  const LockScreen(
-    this.config, {
-    super.key,
-  });
+  const LockScreen(this.config, {super.key});
 
   @override
   State<LockScreen> createState() => _LockScreenState();
@@ -126,18 +122,14 @@ class _LockScreenState extends State<LockScreen> with WidgetsBindingObserver {
                         duration: const Duration(seconds: 1),
                         builder: (context, value, _) =>
                             CircularProgressIndicator(
-                          backgroundColor: colorTheme.fillFaintPressed,
-                          value: value,
-                          color: colorTheme.primary400,
-                          strokeWidth: 1.5,
-                        ),
+                              backgroundColor: colorTheme.fillFaintPressed,
+                              value: value,
+                              color: colorTheme.primary400,
+                              strokeWidth: 1.5,
+                            ),
                       ),
                     ),
-                    Icon(
-                      Icons.lock,
-                      size: 30,
-                      color: colorTheme.textBase,
-                    ),
+                    Icon(Icons.lock, size: 30, color: colorTheme.textBase),
                   ],
                 ),
               ),
@@ -147,23 +139,19 @@ class _LockScreenState extends State<LockScreen> with WidgetsBindingObserver {
                       alignment: Alignment.center,
                       children: [
                         Text(
-                          context.strings.tooManyIncorrectAttempts,
-                          style: textTheme.small,
-                        )
-                            .animate(
-                              delay: const Duration(milliseconds: 2000),
+                              context.strings.tooManyIncorrectAttempts,
+                              style: textTheme.small,
                             )
+                            .animate(delay: const Duration(milliseconds: 2000))
                             .fadeOut(
                               duration: 400.ms,
                               curve: Curves.easeInOutCirc,
                             ),
                         Text(
-                          _formatTime(remainingTimeInSeconds),
-                          style: textTheme.small,
-                        )
-                            .animate(
-                              delay: const Duration(milliseconds: 2250),
+                              _formatTime(remainingTimeInSeconds),
+                              style: textTheme.small,
                             )
+                            .animate(delay: const Duration(milliseconds: 2250))
                             .fadeIn(
                               duration: 400.ms,
                               curve: Curves.easeInOutCirc,
@@ -177,9 +165,7 @@ class _LockScreenState extends State<LockScreen> with WidgetsBindingObserver {
                         style: textTheme.small,
                       ),
                     ),
-              const Padding(
-                padding: EdgeInsets.only(bottom: 24),
-              ),
+              const Padding(padding: EdgeInsets.only(bottom: 24)),
             ],
           ),
         ),
@@ -208,7 +194,8 @@ class _LockScreenState extends State<LockScreen> with WidgetsBindingObserver {
       // This is triggered either when the lock screen is dismissed or when
       // the app is brought to foreground
       _hasPlacedAppInBackground = false;
-      final bool didAuthInLast5Seconds = lastAuthenticatingTime != null &&
+      final bool didAuthInLast5Seconds =
+          lastAuthenticatingTime != null &&
           DateTime.now().millisecondsSinceEpoch - lastAuthenticatingTime! <
               5000;
       if (!_hasAuthenticationFailed && !didAuthInLast5Seconds) {
@@ -216,7 +203,8 @@ class _LockScreenState extends State<LockScreen> with WidgetsBindingObserver {
         if (_lockscreenSetting.getlastInvalidAttemptTime() >
                 DateTime.now().millisecondsSinceEpoch &&
             !_isShowingLockScreen) {
-          final int time = (_lockscreenSetting.getlastInvalidAttemptTime() -
+          final int time =
+              (_lockscreenSetting.getlastInvalidAttemptTime() -
                   DateTime.now().millisecondsSinceEpoch) ~/
               1000;
           Future.delayed(Duration.zero, () {
@@ -274,8 +262,8 @@ class _LockScreenState extends State<LockScreen> with WidgetsBindingObserver {
   }
 
   double _getFractionOfTimeElapsed() {
-    final int totalLockedTime =
-        lockedTimeInSeconds = pow(2, invalidAttemptCount - 5).toInt() * 30;
+    final int totalLockedTime = lockedTimeInSeconds =
+        pow(2, invalidAttemptCount - 5).toInt() * 30;
     if (remainingTimeInSeconds == 0) return 1;
 
     return 1 - remainingTimeInSeconds / totalLockedTime;
@@ -313,8 +301,8 @@ class _LockScreenState extends State<LockScreen> with WidgetsBindingObserver {
           !_isShowingLockScreen) {
         final int remainingTime =
             (_lockscreenSetting.getlastInvalidAttemptTime() -
-                    currentTimestamp) ~/
-                1000;
+                currentTimestamp) ~/
+            1000;
 
         await startLockTimer(remainingTime);
       }
@@ -365,7 +353,7 @@ class _LockScreenState extends State<LockScreen> with WidgetsBindingObserver {
       }
     } catch (e, s) {
       _isShowingLockScreen = false;
-      _logger.severe(e, s);
+      _logger.severe("Failed to show lock screen", e, s);
     }
   }
 }

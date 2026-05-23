@@ -1,3 +1,4 @@
+import "package:flutter/foundation.dart";
 import 'package:flutter/material.dart';
 import "package:photos/generated/l10n.dart";
 import "package:photos/l10n/l10n.dart";
@@ -49,14 +50,15 @@ class _AlbumsWidgetSettingsState extends State<AlbumsWidgetSettings> {
   }
 
   Future<void> selectExisting() async {
-    final selectedAlbums =
-        AlbumHomeWidgetService.instance.getSelectedAlbumIds();
+    final selectedAlbums = AlbumHomeWidgetService.instance
+        .getSelectedAlbumIds();
     final albums = <Collection>{};
 
     if (selectedAlbums != null) {
       for (final collectionID in selectedAlbums) {
-        final collection =
-            CollectionsService.instance.getCollectionByID(collectionID);
+        final collection = CollectionsService.instance.getCollectionByID(
+          collectionID,
+        );
 
         if (collection != null) {
           albums.add(collection);
@@ -65,8 +67,8 @@ class _AlbumsWidgetSettingsState extends State<AlbumsWidgetSettings> {
     }
 
     if (albums.isEmpty) {
-      final favorites =
-          await FavoritesService.instance.getFavoritesCollection();
+      final favorites = await FavoritesService.instance
+          .getFavoritesCollection();
 
       if (favorites == null) {
         return;
@@ -169,30 +171,31 @@ class _AlbumsWidgetSettingsState extends State<AlbumsWidgetSettings> {
                 ),
               )
             else ...[
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(6, 18, 6, 8),
-                  child: MenuItemWidgetNew(
-                    title: AppLocalizations.of(context).showTextOnWidget,
-                    trailingWidget: ToggleSwitchWidget(
-                      value: () => _showText,
-                      onChanged: () async {
-                        final next = !_showText;
-                        setState(() => _showText = next);
-                        await localSettings.setWidgetTextHidden(
-                          WidgetHideTextFlag.album,
-                          !next,
-                        );
-                        await HomeWidgetService.instance.updateWidget(
-                          androidClass:
-                              AlbumHomeWidgetService.ANDROID_CLASS_NAME,
-                          iOSClass: AlbumHomeWidgetService.IOS_CLASS_NAME,
-                        );
-                      },
+              if (kDebugMode)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(6, 18, 6, 8),
+                    child: MenuItemWidgetNew(
+                      title: AppLocalizations.of(context).showTextOnWidget,
+                      trailingWidget: ToggleSwitchWidget(
+                        value: () => _showText,
+                        onChanged: () async {
+                          final next = !_showText;
+                          setState(() => _showText = next);
+                          await localSettings.setWidgetTextHidden(
+                            WidgetHideTextFlag.album,
+                            !next,
+                          );
+                          await HomeWidgetService.instance.updateWidget(
+                            androidClass:
+                                AlbumHomeWidgetService.ANDROID_CLASS_NAME,
+                            iOSClass: AlbumHomeWidgetService.IOS_CLASS_NAME,
+                          );
+                        },
+                      ),
                     ),
                   ),
                 ),
-              ),
               FutureBuilder<List<Collection>>(
                 future: CollectionsService.instance
                     .getCollectionForWidgetSelection(),
@@ -208,7 +211,6 @@ class _AlbumsWidgetSettingsState extends State<AlbumsWidgetSettings> {
 
                     return CollectionsFlexiGridViewWidget(
                       data,
-                      displayLimitCount: snapshot.data!.length,
                       shrinkWrap: false,
                       selectedAlbums: _selectedAlbums,
                       shouldShowCreateAlbum: false,

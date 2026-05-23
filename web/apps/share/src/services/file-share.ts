@@ -7,6 +7,10 @@ import {
     fromHex,
     toB64,
 } from "ente-base/crypto";
+import {
+    linkDeviceTokenFromResponse,
+    linkDeviceTokenRequestHeader,
+} from "ente-base/http";
 import { apiOrigin } from "ente-base/origins";
 import type {
     DecryptedFileInfo,
@@ -69,11 +73,17 @@ export const extractFileKeyFromURL = async (
  */
 export const fetchFileInfo = async (
     accessToken: string,
-): Promise<FileLinkInfo> => {
+    linkDeviceToken?: string,
+): Promise<{ fileLinkInfo: FileLinkInfo; linkDeviceToken?: string }> => {
     const url = `${await apiOrigin()}/file-link/info`;
 
     const response = await fetch(url, {
-        headers: { "X-Auth-Access-Token": accessToken },
+        headers: {
+            "X-Auth-Access-Token": accessToken,
+            ...(linkDeviceToken && {
+                [linkDeviceTokenRequestHeader]: linkDeviceToken,
+            }),
+        },
         cache: "no-store",
     });
 
@@ -81,11 +91,26 @@ export const fetchFileInfo = async (
         if (await isDeviceLimitExceededResponse(response)) {
             throw new Error(deviceLimitExceededMessage);
         }
+        if (response.status === 410) {
+            let errorBody: { error?: string } | undefined;
+            try {
+                errorBody = (await response.json()) as { error?: string };
+            } catch {
+                // Ignore JSON parsing errors and use generic message
+            }
+            if (errorBody?.error === "expired token") {
+                throw new Error("This link has expired.");
+            }
+            throw new Error("This link has been deleted by the owner.");
+        }
         throw new Error(`Failed to fetch file`);
     }
 
     const data = (await response.json()) as FileLinkInfo;
-    return data;
+    return {
+        fileLinkInfo: data,
+        linkDeviceToken: linkDeviceTokenFromResponse(response),
+    };
 };
 
 /**

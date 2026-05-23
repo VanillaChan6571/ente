@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:ente_pure_utils/ente_pure_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
+import "package:photos/core/constants.dart";
 import 'package:photos/core/event_bus.dart';
 import 'package:photos/ente_theme_data.dart';
 import 'package:photos/events/local_import_progress.dart';
@@ -37,9 +38,7 @@ class _LoadingPhotosWidgetState extends State<LoadingPhotosWidget> {
   StreamSubscription<LocalImportProgressEvent>? _importProgressEvent;
   int _currentPage = 0;
   String? _loadingMessage;
-  final PageController _pageController = PageController(
-    initialPage: 0,
-  );
+  final PageController _pageController = PageController(initialPage: 0);
   final List<String> _messages = [];
   late final Timer _didYouKnowTimer;
   final oneMinuteOnScreen = ValueNotifier(false);
@@ -52,8 +51,9 @@ class _LoadingPhotosWidgetState extends State<LoadingPhotosWidget> {
         oneMinuteOnScreen.value = true;
       }
     });
-    _firstImportEvent =
-        Bus.instance.on<SyncStatusUpdate>().listen((event) async {
+    _firstImportEvent = Bus.instance.on<SyncStatusUpdate>().listen((
+      event,
+    ) async {
       if (mounted && event.status == SyncStatus.completedFirstGalleryImport) {
         if (permissionService.hasGrantedLimitedPermissions()) {
           // Do nothing, let HomeWidget refresh
@@ -63,8 +63,9 @@ class _LoadingPhotosWidgetState extends State<LoadingPhotosWidget> {
       }
     });
 
-    _didYouKnowTimer =
-        Timer.periodic(const Duration(seconds: 5), (Timer timer) {
+    _didYouKnowTimer = Timer.periodic(const Duration(seconds: 5), (
+      Timer timer,
+    ) {
       if (!mounted) {
         return;
       }
@@ -124,14 +125,16 @@ class _LoadingPhotosWidgetState extends State<LoadingPhotosWidget> {
     if (_importProgressEvent != null) {
       _importProgressEvent!.cancel();
     } else {
-      _importProgressEvent =
-          Bus.instance.on<LocalImportProgressEvent>().listen((event) {
-        _loadingMessage = AppLocalizations.of(context)
-            .processingImport(folderName: event.folderName);
-        if (mounted) {
-          setState(() {});
-        }
-      });
+      _importProgressEvent = Bus.instance.on<LocalImportProgressEvent>().listen(
+        (event) {
+          _loadingMessage = AppLocalizations.of(
+            context,
+          ).processingImport(folderName: event.folderName);
+          if (mounted) {
+            setState(() {});
+          }
+        },
+      );
     }
   }
 
@@ -196,18 +199,14 @@ class _LoadingPhotosWidgetState extends State<LoadingPhotosWidget> {
                       children: [
                         Text(
                           AppLocalizations.of(context).didYouKnow,
-                          style: Theme.of(context)
-                              .textTheme
-                              .titleLarge!
+                          style: Theme.of(context).textTheme.titleLarge!
                               .copyWith(
                                 color: Theme.of(context).colorScheme.greenText,
                               ),
                         ),
                       ],
                     ),
-                    const SizedBox(
-                      height: 16,
-                    ),
+                    const SizedBox(height: 16),
                     SizedBox(
                       height: 175,
                       child: Stack(
@@ -250,14 +249,16 @@ class _LoadingPhotosWidgetState extends State<LoadingPhotosWidget> {
                           context: context,
                           title: AppLocalizations.of(context).oops,
                           icon: Icons.error_outline_outlined,
-                          body: AppLocalizations.of(context)
-                              .localSyncErrorMessage,
+                          body: AppLocalizations.of(
+                            context,
+                          ).localSyncErrorMessage,
                           isDismissible: true,
                           buttons: [
                             ButtonWidget(
                               buttonType: ButtonType.primary,
-                              labelText:
-                                  AppLocalizations.of(context).contactSupport,
+                              labelText: AppLocalizations.of(
+                                context,
+                              ).contactSupport,
                               buttonAction: ButtonAction.second,
                               onTap: () async {
                                 await sendLogs(
@@ -292,7 +293,9 @@ class _LoadingPhotosWidgetState extends State<LoadingPhotosWidget> {
     _messages.add(AppLocalizations.of(context).loadMessage5);
     _messages.add(AppLocalizations.of(context).loadMessage6);
     _messages.add(AppLocalizations.of(context).loadMessage7);
-    _messages.add(AppLocalizations.of(context).loadMessage8);
+    _messages.add(
+      AppLocalizations.of(context).loadMessage8(webUrl: kPhotosWebDomain),
+    );
     _messages.add(AppLocalizations.of(context).loadMessage9);
   }
 
@@ -300,10 +303,9 @@ class _LoadingPhotosWidgetState extends State<LoadingPhotosWidget> {
     return Text(
       text,
       textAlign: TextAlign.start,
-      style: Theme.of(context)
-          .textTheme
-          .headlineSmall!
-          .copyWith(color: Theme.of(context).colorScheme.defaultTextColor),
+      style: Theme.of(context).textTheme.headlineSmall!.copyWith(
+        color: Theme.of(context).colorScheme.defaultTextColor,
+      ),
     );
   }
 }

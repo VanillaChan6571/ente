@@ -32,7 +32,7 @@ Future<void> showSingleFileDeleteSheet(
       file.uploadedFileID != null && file.localID != null;
   final bool isLocalOnly = file.uploadedFileID == null && file.localID != null;
   final bool isRemoteOnly = file.uploadedFileID != null && file.localID == null;
-  if (isOfflineMode) {
+  if (isLocalGalleryMode) {
     if (file.localID == null) {
       showShortToast(
         context,
@@ -40,24 +40,30 @@ Future<void> showSingleFileDeleteSheet(
       );
       return;
     }
-    await deleteFilesOnDeviceOnly(context, [file]);
-    if (onFileRemoved != null && (isLocalOnly || isLocalOnlyContext)) {
+    final deletedFiles = await deleteFilesOnDeviceOnly(context, [file]);
+    if (deletedFiles.isNotEmpty &&
+        onFileRemoved != null &&
+        (isLocalOnly || isLocalOnlyContext)) {
       onFileRemoved(file);
     }
     return;
   }
-  final String bodyHighlight =
-      AppLocalizations.of(context).singleFileDeleteHighlight;
+  final String bodyHighlight = AppLocalizations.of(
+    context,
+  ).singleFileDeleteHighlight;
   String body = "";
   if (isBothLocalAndRemote) {
-    body = AppLocalizations.of(context)
-        .singleFileInBothLocalAndRemote(fileType: fileType);
+    body = AppLocalizations.of(
+      context,
+    ).singleFileInBothLocalAndRemote(fileType: fileType);
   } else if (isRemoteOnly) {
-    body =
-        AppLocalizations.of(context).singleFileInRemoteOnly(fileType: fileType);
+    body = AppLocalizations.of(
+      context,
+    ).singleFileInRemoteOnly(fileType: fileType);
   } else if (isLocalOnly) {
-    body = AppLocalizations.of(context)
-        .singleFileDeleteFromDevice(fileType: fileType);
+    body = AppLocalizations.of(
+      context,
+    ).singleFileDeleteFromDevice(fileType: fileType);
   } else {
     throw AssertionError("Unexpected state");
   }
@@ -101,11 +107,13 @@ Future<void> showSingleFileDeleteSheet(
         shouldSurfaceExecutionStates: false,
         isInAlert: true,
         onTap: () async {
-          await deleteFilesOnDeviceOnly(context, [file]);
+          final deletedFiles = await deleteFilesOnDeviceOnly(context, [file]);
           // Remove from viewer if:
           // 1. File is local-only (no remote copy), OR
           // 2. We're in a local-only context (device folder - file disappears from this view)
-          if (onFileRemoved != null && (isLocalOnly || isLocalOnlyContext)) {
+          if (deletedFiles.isNotEmpty &&
+              onFileRemoved != null &&
+              (isLocalOnly || isLocalOnlyContext)) {
             onFileRemoved(file);
           }
         },

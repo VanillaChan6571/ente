@@ -29,6 +29,7 @@ import "package:photos/service_locator.dart";
 import "package:photos/services/app_navigation_service.dart";
 import "package:photos/services/language_service.dart";
 import "package:photos/services/machine_learning/face_ml/person/person_service.dart";
+import "package:photos/services/machine_learning/ml_model_download_service.dart";
 import "package:photos/services/memories/photo_selector.dart";
 import "package:photos/services/notification_service.dart";
 import "package:photos/services/search_service.dart";
@@ -56,8 +57,9 @@ class MemoriesCacheService {
   final SharedPreferences _prefs;
   static final Logger _logger = Logger("MemoriesCacheService");
 
-  MemoriesDB get _memoriesDB =>
-      isOfflineMode ? MemoriesDB.offlineInstance : MemoriesDB.instance;
+  MemoriesDB get _memoriesDB => isLocalGalleryMode
+      ? MemoriesDB.localGalleryInstance
+      : MemoriesDB.instance;
 
   List<SmartMemory>? _cachedMemories;
   List<SmartMemory>? get currentMemoriesSync => _cachedMemories;
@@ -89,15 +91,18 @@ class MemoriesCacheService {
       );
     });
 
-    Bus.instance.on<FilesUpdatedEvent>().where((event) {
-      return _shouldInvalidateForDeletedFiles(event.type);
-    }).listen((event) async {
-      await _invalidateDeletedFiles(event.updatedFiles);
-    });
+    Bus.instance
+        .on<FilesUpdatedEvent>()
+        .where((event) {
+          return _shouldInvalidateForDeletedFiles(event.type);
+        })
+        .listen((event) async {
+          await _invalidateDeletedFiles(event.updatedFiles);
+        });
 
     Bus.instance.on<LocalPhotosUpdatedEvent>().listen((event) {
       if (_pendingInitialOfflineCacheUpgrade &&
-          isOfflineMode &&
+          isLocalGalleryMode &&
           event.source == "offlineImportMetadata" &&
           LocalSyncService.instance.hasCompletedFirstImport()) {
         unawaited(
@@ -127,11 +132,11 @@ class MemoriesCacheService {
     });
   }
 
-  String get _lastCacheUpdateKey => isOfflineMode
+  String get _lastCacheUpdateKey => isLocalGalleryMode
       ? "${_lastMemoriesCacheUpdateTimeKey}_offline"
       : _lastMemoriesCacheUpdateTimeKey;
 
-  String get _shouldUpdateKey => isOfflineMode
+  String get _shouldUpdateKey => isLocalGalleryMode
       ? "${_shouldUpdateCacheKey}_offline"
       : _shouldUpdateCacheKey;
 
@@ -163,12 +168,23 @@ class MemoriesCacheService {
   Future<bool> _isMlReady() async {
     if (!_mlEnabled) return false;
     try {
-      final mlDataDB =
-          isOfflineMode ? MLDataDB.offlineInstance : MLDataDB.instance;
+      final mlDataDB = isLocalGalleryMode
+          ? MLDataDB.localGalleryInstance
+          : MLDataDB.instance;
       final clipIndexed = await mlDataDB.getClipIndexedFileCount();
-      return clipIndexed >= SmartMemoriesService.minimumMemoryLength;
+      if (clipIndexed < SmartMemoriesService.minimumMemoryLength) {
+        return false;
+      }
+      if (!await MLModelDownloadService.instance.canLoadClipTextModel()) {
+        _logger.info(
+          "ML not ready for smart memories because CLIP text model is not "
+          "cached and high bandwidth connectivity is unavailable",
+        );
+        return false;
+      }
+      return true;
     } catch (e, s) {
-      _logger.warning("Failed to read CLIP indexed count", e, s);
+      _logger.warning("Failed to determine ML readiness", e, s);
       return false;
     }
   }
@@ -195,7 +211,7 @@ class MemoriesCacheService {
       return true;
     }
 
-    if (isOfflineMode) {
+    if (isLocalGalleryMode) {
       return type == EventType.deletedFromDevice;
     }
 
@@ -205,7 +221,7 @@ class MemoriesCacheService {
   Future markMemoryAsSeen(Memory memory, bool lastInList) async {
     memory.markSeen();
     int? seenTimeKey;
-    if (isOfflineMode) {
+    if (isLocalGalleryMode) {
       final localId = memory.file.localID;
       if (localId != null && localId.isNotEmpty) {
         seenTimeKey = _localIdToIntIdCache[localId];
@@ -223,10 +239,11 @@ class MemoriesCacheService {
       seenTimeKey: seenTimeKey,
     );
     if (_cachedMemories != null) {
-      if (isOfflineMode) {
+      if (isLocalGalleryMode) {
         final localId = memory.file.localID;
         if (localId != null && localId.isNotEmpty) {
-          final localIntId = _localIdToIntIdCache[localId] ??
+          final localIntId =
+              _localIdToIntIdCache[localId] ??
               await OfflineFilesDB.instance.getOrCreateLocalIntId(localId);
           _localIdToIntIdCache[localId] = localIntId;
           final cachedLocalIds = _cachedMemories!
@@ -236,8 +253,8 @@ class MemoriesCacheService {
               .where((id) => id.isNotEmpty)
               .toSet();
           if (cachedLocalIds.isNotEmpty) {
-            final cacheLocalIdToIntId =
-                await OfflineFilesDB.instance.ensureLocalIntIds(cachedLocalIds);
+            final cacheLocalIdToIntId = await OfflineFilesDB.instance
+                .ensureLocalIntIds(cachedLocalIds);
             _localIdToIntIdCache.addAll(cacheLocalIdToIntId);
             for (final smartMemory in _cachedMemories!) {
               for (final mem in smartMemory.memories) {
@@ -312,7 +329,7 @@ class MemoriesCacheService {
   }
 
   Future<Set<int>> _deletedMemoryFileIds(List<EnteFile> deletedFiles) async {
-    if (isOfflineMode) {
+    if (isLocalGalleryMode) {
       final localIds = deletedFiles
           .map((file) => file.localID)
           .whereType<String>()
@@ -321,15 +338,16 @@ class MemoriesCacheService {
       if (localIds.isEmpty) {
         return {};
       }
-      final localIdToIntId =
-          await OfflineFilesDB.instance.ensureLocalIntIds(localIds);
+      final localIdToIntId = await OfflineFilesDB.instance.ensureLocalIntIds(
+        localIds,
+      );
       _localIdToIntIdCache.addAll(localIdToIntId);
       return localIdToIntId.values.toSet();
     }
 
     return deletedFiles
         .map(
-          (file) => PhotoSelector.memoryFileId(file, isOfflineMode: false),
+          (file) => PhotoSelector.memoryFileId(file, isLocalGalleryMode: false),
         )
         .whereType<int>()
         .toSet();
@@ -341,7 +359,7 @@ class MemoriesCacheService {
   ) {
     final originalLength = memory.memories.length;
     memory.memories.removeWhere((mem) {
-      if (isOfflineMode) {
+      if (isLocalGalleryMode) {
         final localId = mem.file.localID;
         if (localId == null || localId.isEmpty) {
           return false;
@@ -350,8 +368,10 @@ class MemoriesCacheService {
         return localIntId != null && deletedMemoryFileIds.contains(localIntId);
       }
 
-      final uploadedFileId =
-          PhotoSelector.memoryFileIdFromMemory(mem, isOfflineMode: false);
+      final uploadedFileId = PhotoSelector.memoryFileIdFromMemory(
+        mem,
+        isLocalGalleryMode: false,
+      );
       return uploadedFileId != null &&
           deletedMemoryFileIds.contains(uploadedFileId);
     });
@@ -401,7 +421,7 @@ class MemoriesCacheService {
     ToShowMemory memory,
     Set<int> deletedMemoryFileIds,
   ) {
-    if (isOfflineMode && memory.fileLocalIntIDs != null) {
+    if (isLocalGalleryMode && memory.fileLocalIntIDs != null) {
       final originalLength = memory.fileLocalIntIDs!.length;
       memory.fileLocalIntIDs!.removeWhere(deletedMemoryFileIds.contains);
       return memory.fileLocalIntIDs!.length != originalLength;
@@ -413,14 +433,14 @@ class MemoriesCacheService {
   }
 
   bool _cacheMemoryHasFiles(ToShowMemory memory) {
-    if (isOfflineMode && memory.fileLocalIntIDs != null) {
+    if (isLocalGalleryMode && memory.fileLocalIntIDs != null) {
       return memory.fileLocalIntIDs!.isNotEmpty;
     }
     return memory.fileUploadedIDs.isNotEmpty;
   }
 
   bool _shouldDeferInitialOfflineCacheUpgrade() {
-    return isOfflineMode &&
+    return isLocalGalleryMode &&
         !LocalSyncService.instance.hasCompletedFirstImport();
   }
 
@@ -429,7 +449,7 @@ class MemoriesCacheService {
   }) async {
     if (!_pendingInitialOfflineCacheUpgrade ||
         _isRunningDeferredInitialOfflineCacheUpgrade ||
-        !isOfflineMode) {
+        !isLocalGalleryMode) {
       return;
     }
 
@@ -566,7 +586,7 @@ class MemoriesCacheService {
         cache.peopleShownLogs.removeWhere((log) => log.personID == personID);
         final shouldWriteCache =
             cache.toShowMemories.length != originalToShowLength ||
-                cache.peopleShownLogs.length != originalLogLength;
+            cache.peopleShownLogs.length != originalLogLength;
         if (shouldWriteCache) {
           await writeToJsonFile<MemoriesCache>(
             await _getCachePath(),
@@ -598,8 +618,9 @@ class MemoriesCacheService {
     }
     return _memoriesGetLock.synchronized(() async {
       if (_cachedMemories != null && _cachedMemories!.isNotEmpty) {
-        final currentMemories =
-            _cachedMemories!.where((memory) => memory.shouldShowNow()).toList();
+        final currentMemories = _cachedMemories!
+            .where((memory) => memory.shouldShowNow())
+            .toList();
         if (currentMemories.isNotEmpty) {
           _logger.info("Found memories in memory cache");
           return currentMemories;
@@ -619,7 +640,8 @@ class MemoriesCacheService {
         final cacheFileExists = await _cacheFileExists();
         _cachedMemories = await _getMemoriesFromCache();
         if (_cachedMemories == null || _cachedMemories!.isEmpty) {
-          final shouldRefreshEmptyCache = _cachedMemories == null ||
+          final shouldRefreshEmptyCache =
+              _cachedMemories == null ||
               _shouldUpdate ||
               _timeToUpdateCache() ||
               lastMemoriesCacheUpdateTime == 0;
@@ -705,10 +727,11 @@ class MemoriesCacheService {
       _logger.info('Processing disk cache memories to smart memories');
       final List<SmartMemory> memories = [];
       final List<(ToShowMemory, SmartMemory)> typedMemories = [];
-      final seenTimes = await (isOfflineMode
-              ? MemoriesDB.offlineInstance
-              : MemoriesDB.instance)
-          .getSeenTimes();
+      final seenTimes =
+          await (isLocalGalleryMode
+                  ? MemoriesDB.localGalleryInstance
+                  : MemoriesDB.instance)
+              .getSeenTimes();
       final minimalUploadedIDs = <int>{};
       final minimalLocalIntIds = <int>{};
       for (final ToShowMemory memory in cache.toShowMemories) {
@@ -749,10 +772,12 @@ class MemoriesCacheService {
 
       for (final ToShowMemory memory in cache.toShowMemories) {
         if (memory.shouldShowNow()) {
-          final useLocalIntIds = memory.fileLocalIntIDs != null &&
+          final useLocalIntIds =
+              memory.fileLocalIntIDs != null &&
               memory.fileLocalIntIDs!.isNotEmpty;
-          final fileIds =
-              useLocalIntIds ? memory.fileLocalIntIDs! : memory.fileUploadedIDs;
+          final fileIds = useLocalIntIds
+              ? memory.fileLocalIntIDs!
+              : memory.fileUploadedIDs;
           final hydratedMemories = fileIds
               .where(
                 (fileID) => useLocalIntIds
@@ -789,7 +814,7 @@ class MemoriesCacheService {
         for (final typedMemory in typedMemories) {
           try {
             typedMemory.$2.title = typedMemory.$2.createTitle(s, languageCode);
-          } catch (_, __) {
+          } catch (_) {
             typedMemory.$2.title = typedMemory.$1.title;
           }
         }
@@ -825,8 +850,9 @@ class MemoriesCacheService {
       );
       _isUpdatingMemories = true;
       try {
-        final EnteWatch? w =
-            kDebugMode ? EnteWatch("MemoriesCacheService") : null;
+        final EnteWatch? w = kDebugMode
+            ? EnteWatch("MemoriesCacheService")
+            : null;
         w?.start();
         final oldCache = await _readCacheFromDisk();
         w?.log("gotten old cache");
@@ -841,21 +867,33 @@ class MemoriesCacheService {
           newCache,
           mlEnabled: mlReady,
         );
+        if (nowResult.failed) {
+          _logger.warning(
+            "Skipping memories cache update because current calculation failed",
+          );
+          return;
+        }
         final carriedForwardTripEntries = List<ToShowMemory>.from(
           newCache.toShowMemories,
         );
         newCache.toShowMemories.addAll(
           nowResult.memories.whereType<TripMemory>().map(
-                (memory) => ToShowMemory.fromSmartMemory(memory, now),
-              ),
+            (memory) => ToShowMemory.fromSmartMemory(memory, now),
+          ),
         );
         final nextResult = await smartMemoriesService.calcSmartMemories(
           next,
           newCache,
           mlEnabled: mlReady,
         );
+        if (nextResult.failed) {
+          _logger.warning(
+            "Skipping memories cache update because next calculation failed",
+          );
+          return;
+        }
         w?.log("calculated new memories");
-        final localIdToIntId = isOfflineMode
+        final localIdToIntId = isLocalGalleryMode
             ? await _buildLocalIntIdMapForMemories([
                 ...nowResult.memories,
                 ...nextResult.memories,
@@ -1078,7 +1116,7 @@ class MemoriesCacheService {
   }
 
   Future<String> _getCachePath() async {
-    final suffix = isOfflineMode ? "_offline" : "";
+    final suffix = isLocalGalleryMode ? "_offline" : "";
     return (await getApplicationSupportDirectory()).path +
         "/cache/memories_cache$suffix";
   }
@@ -1259,13 +1297,7 @@ class MemoriesCacheService {
         return;
       }
       await _routeToPage(
-        DetailPage(
-          DetailPageConfiguration(
-            [file],
-            0,
-            "memorywidget-fallback",
-          ),
-        ),
+        DetailPage(DetailPageConfiguration([file], 0, "memorywidget-fallback")),
         context: context,
         forceCustomPageRoute: true,
       );
@@ -1365,7 +1397,7 @@ class MemoriesCacheService {
         initialIndex: 0,
         memories: personMemory.memories,
         child: Container(
-          color: backgroundBaseDark,
+          color: backgroundColorDark,
           width: double.infinity,
           height: double.infinity,
           child: FullScreenMemory(personMemory.title, 0),

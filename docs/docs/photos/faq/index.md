@@ -138,6 +138,8 @@ Jump to a category:
 - [Does Ente compress my photos during backup?](/photos/faq/backup-and-sync#does-ente-compress)
 - [How can I check my backup status?](/photos/faq/backup-and-sync#check-backup-status)
 - [Does Ente backup Live Photos from iPhone?](/photos/faq/backup-and-sync#live-photos-backup)
+- [Can I pick photos from Ente in other apps?](/photos/faq/backup-and-sync#pick-photos-in-other-apps)
+- [Can I open photos from my camera app in Ente?](/photos/faq/backup-and-sync#open-camera-photos-in-ente)
 
 ### Background Sync
 
@@ -366,7 +368,6 @@ Jump to a category:
 
 - [What payment methods does Ente support?](/photos/faq/storage-and-plans#supported-payment-methods)
 - [Can I pay with PayPal?](/photos/faq/storage-and-plans#paypal-payment)
-- [Does Ente accept crypto payments?](/photos/faq/storage-and-plans#crypto-payment)
 - [Does Ente store my card details?](/photos/faq/storage-and-plans#card-security)
 
 ### Managing Your Subscription
@@ -415,7 +416,7 @@ Jump to a category:
 - [Why does AppImage say it requires FUSE?](/photos/faq/troubleshooting#appimage-fuse)
 - [Why do I get a "SUID sandbox helper" error on Linux?](/photos/faq/troubleshooting#suid-sandbox-error)
 - [Why won't the Windows desktop app start (JavaScript error)?](/photos/faq/troubleshooting#windows-javascript-error)
-- [Why can't I log in to web.ente.io on my mobile browser?](/photos/faq/troubleshooting#web-login-mobile)
+- [Why can't I log in to photos.ente.com on my mobile browser?](/photos/faq/troubleshooting#web-login-mobile)
 - [How do I identify which files failed to upload?](/photos/faq/troubleshooting#identify-failed-uploads)
 
 ### Performance Issues

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import "package:photos/models/memories/memory.dart";
 import "package:photos/theme/colors.dart";
 import "package:photos/ui/home/memories/full_screen_memory.dart";
+import "package:photos/ui/home/memories/memory_cover_util.dart";
 
 // TODO: Use a single instance variable for `allMemories` and `allTitles`
 class AllMemoriesPage extends StatefulWidget {
@@ -46,7 +47,7 @@ class _AllMemoriesPageState extends State<AllMemoriesPage>
     return Container(
       width: double.infinity,
       height: double.infinity,
-      color: backgroundBaseDark,
+      color: backgroundColorDark,
       child: PageView.builder(
         controller: pageController,
         physics: const BouncingScrollPhysics(),
@@ -55,8 +56,8 @@ class _AllMemoriesPageState extends State<AllMemoriesPage>
         itemBuilder: (context, index) {
           final initialMemoryIndex =
               widget.isFromWidgetOrNotifications && isFirstLoad
-                  ? widget.inititalFileIndex
-                  : _getNextMemoryIndex(index);
+              ? widget.inititalFileIndex
+              : getNextMemoryIndex(widget.allMemories[index]);
           isFirstLoad = false;
           return FullScreenMemoryDataUpdater(
             initialIndex: initialMemoryIndex,
@@ -66,41 +67,20 @@ class _AllMemoriesPageState extends State<AllMemoriesPage>
               initialMemoryIndex,
               onNextMemory: index < widget.allMemories.length - 1
                   ? () => pageController.nextPage(
-                        duration: const Duration(milliseconds: 675),
-                        curve: Curves.easeOutQuart,
-                      )
+                      duration: const Duration(milliseconds: 675),
+                      curve: Curves.easeOutQuart,
+                    )
                   : null,
               onPreviousMemory: index > 0
                   ? () => pageController.previousPage(
-                        duration: const Duration(milliseconds: 675),
-                        curve: Curves.easeOutQuart,
-                      )
+                      duration: const Duration(milliseconds: 675),
+                      curve: Curves.easeOutQuart,
+                    )
                   : null,
             ),
           );
         },
       ),
     );
-  }
-
-  int _getNextMemoryIndex(int currentIndex) {
-    int lastSeenIndex = 0;
-    int lastSeenTimestamp = 0;
-    final allMemoriesLength = widget.allMemories[currentIndex].length;
-    for (var index = 0; index < allMemoriesLength; index++) {
-      final memory = widget.allMemories[currentIndex][index];
-      if (!memory.isSeen()) {
-        return index;
-      } else {
-        if (memory.seenTime() > lastSeenTimestamp) {
-          lastSeenIndex = index;
-          lastSeenTimestamp = memory.seenTime();
-        }
-      }
-    }
-    if (lastSeenIndex == widget.allMemories[currentIndex].length - 1) {
-      return 0;
-    }
-    return lastSeenIndex + 1;
   }
 }

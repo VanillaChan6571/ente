@@ -26,9 +26,9 @@ class LocalAuthenticationService {
         infoMessage,
         isAuthenticatingForInAppChange: true,
       );
-      AppLock.of(context)!.setEnabled(
-        await Configuration.instance.shouldShowLockScreen(),
-      );
+      AppLock.of(
+        context,
+      )!.setEnabled(await Configuration.instance.shouldShowLockScreen());
       if (!result) {
         showToast(context, infoMessage);
         return false;
@@ -59,7 +59,7 @@ class LocalAuthenticationService {
           },
         ),
       );
-      if (result) {
+      if (result == true) {
         return true;
       }
     }
@@ -76,7 +76,7 @@ class LocalAuthenticationService {
           },
         ),
       );
-      if (result) {
+      if (result == true) {
         return true;
       }
     }
@@ -92,28 +92,21 @@ class LocalAuthenticationService {
   ]) async {
     if (await _isLocalAuthSupportedOnDevice()) {
       AppLock.of(context)!.disable();
-      final result = await requestAuthentication(
-        context,
-        infoMessage,
-      );
+      final result = await requestAuthentication(context, infoMessage);
       if (result) {
         AppLock.of(context)!.setEnabled(shouldEnableLockScreen);
 
-        await Configuration.instance
-            .setSystemLockScreen(shouldEnableLockScreen);
+        await Configuration.instance.setSystemLockScreen(
+          shouldEnableLockScreen,
+        );
         return true;
       } else {
-        AppLock.of(context)!
-            .setEnabled(await Configuration.instance.shouldShowLockScreen());
+        AppLock.of(
+          context,
+        )!.setEnabled(await Configuration.instance.shouldShowLockScreen());
       }
     } else {
-      unawaited(
-        showErrorDialog(
-          context,
-          errorDialogTitle,
-          errorDialogContent,
-        ),
-      );
+      unawaited(showErrorDialog(context, errorDialogTitle, errorDialogContent));
     }
     return false;
   }

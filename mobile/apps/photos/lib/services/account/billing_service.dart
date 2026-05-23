@@ -4,24 +4,24 @@ import 'package:ente_pure_utils/ente_pure_utils.dart';
 import 'package:flutter/material.dart';
 // import 'package:flutter/foundation.dart';
 // import 'package:flutter_inapp_purchase/flutter_inapp_purchase.dart';
-import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:logging/logging.dart';
 import "package:photos/gateways/billing/billing_gateway.dart";
 import 'package:photos/gateways/billing/models/billing_plan.dart';
 import 'package:photos/gateways/billing/models/subscription.dart';
 import 'package:photos/models/user_details.dart';
 import "package:photos/service_locator.dart";
+import "package:photos/services/account/purchase_update_listener.dart";
 import 'package:photos/ui/family/family_plan_page.dart';
 import 'package:photos/utils/dialog_util.dart';
 
 const kWebPaymentRedirectUrl = String.fromEnvironment(
   "web-payment-redirect",
-  defaultValue: "https://payments.ente.io/frameRedirect",
+  defaultValue: "https://payments.ente.com/frameRedirect",
 );
 
 const kWebPaymentBaseEndpoint = String.fromEnvironment(
   "web-payment",
-  defaultValue: "https://payments.ente.io",
+  defaultValue: "https://payments.ente.com",
 );
 
 class BillingService {
@@ -43,23 +43,10 @@ class BillingService {
     //   await FlutterInappPurchase.instance.initConnection;
     //   FlutterInappPurchase.instance.clearTransactionIOS();
     // }
-    InAppPurchase.instance.purchaseStream.listen((purchases) {
-      if (_isOnSubscriptionPage) {
-        return;
-      }
-      for (final purchase in purchases) {
-        if (purchase.status == PurchaseStatus.purchased) {
-          verifySubscription(
-            purchase.productID,
-            purchase.verificationData.serverVerificationData,
-          ).then((response) {
-            InAppPurchase.instance.completePurchase(purchase);
-          });
-        } else if (Platform.isIOS && purchase.pendingCompletePurchase) {
-          InAppPurchase.instance.completePurchase(purchase);
-        }
-      }
-    });
+    listenForPurchaseUpdates(
+      isOnSubscriptionPage: () => _isOnSubscriptionPage,
+      verifySubscription: verifySubscription,
+    );
   }
 
   void clearCache() {
@@ -84,7 +71,7 @@ class BillingService {
             paymentProvider ?? (Platform.isAndroid ? "playstore" : "appstore"),
       );
     } catch (e, s) {
-      _logger.severe(e, s);
+      _logger.severe("Failed to verify subscription", e, s);
       rethrow;
     }
   }
@@ -93,7 +80,7 @@ class BillingService {
     try {
       return await _gateway.getSubscription();
     } catch (e, s) {
-      _logger.severe(e, s);
+      _logger.severe("Failed to fetch subscription", e, s);
       rethrow;
     }
   }
@@ -102,7 +89,7 @@ class BillingService {
     try {
       return await _gateway.cancelStripeSubscription();
     } catch (e, s) {
-      _logger.severe(e, s);
+      _logger.severe("Failed to cancel Stripe subscription", e, s);
       rethrow;
     }
   }
@@ -111,7 +98,7 @@ class BillingService {
     try {
       return await _gateway.activateStripeSubscription();
     } catch (e, s) {
-      _logger.severe(e, s);
+      _logger.severe("Failed to activate Stripe subscription", e, s);
       rethrow;
     }
   }
@@ -124,7 +111,7 @@ class BillingService {
         redirectURL: kWebPaymentRedirectUrl,
       );
     } catch (e, s) {
-      _logger.severe(e, s);
+      _logger.severe("Failed to fetch Stripe customer portal URL", e, s);
       rethrow;
     }
   }

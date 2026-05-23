@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:ente_auth/l10n/l10n.dart';
 import 'package:ente_auth/models/code.dart';
@@ -10,6 +9,7 @@ import 'package:ente_auth/store/code_store.dart';
 import 'package:ente_auth/ui/components/buttons/button_widget.dart';
 import 'package:ente_auth/ui/components/dialog_widget.dart';
 import 'package:ente_auth/ui/components/models/button_type.dart';
+import 'package:ente_auth/ui/settings/data/import/import_file_cleanup.dart';
 import 'package:ente_auth/ui/settings/data/import/import_success.dart';
 import 'package:ente_auth/utils/dialog_util.dart';
 import 'package:ente_ui/components/progress_dialog.dart';
@@ -62,8 +62,10 @@ Future<void> _pickAndOTPFile(BuildContext context) async {
   if (result == null) {
     return;
   }
-  final ProgressDialog progressDialog =
-      createProgressDialog(context, l10n.pleaseWait);
+  final ProgressDialog progressDialog = createProgressDialog(
+    context,
+    l10n.pleaseWait,
+  );
 
   try {
     String path = result.files.single.path!;
@@ -78,7 +80,7 @@ Future<void> _pickAndOTPFile(BuildContext context) async {
     await showErrorDialog(
       context,
       l10n.sorry,
-      "${l10n.importFailureDescNew}\n Error: ${e.toString()}",
+      "${l10n.importFailureDesc}\n Error: ${e.toString()}",
     );
   }
 }
@@ -95,12 +97,11 @@ Future<int?> _processAndOTPFile(
   String path,
   ProgressDialog dialog,
 ) async {
-  File file = File(path);
   List<dynamic> entries;
 
   // Try to detect if file is encrypted or plain text
   // Plain text files are valid JSON arrays, encrypted files are binary
-  final Uint8List fileBytes = await file.readAsBytes();
+  final Uint8List fileBytes = await readPickedImportFileAsBytes(path);
 
   try {
     // Try to parse as JSON (plain text format)
@@ -222,19 +223,26 @@ String _decryptAndOTPBackup(_DecryptParams params) {
   final int iterations = byteData.getInt32(0, Endian.big);
 
   // Extract salt (12 bytes)
-  final Uint8List salt =
-      Uint8List.sublistView(fileBytes, intLength, intLength + saltLength);
+  final Uint8List salt = Uint8List.sublistView(
+    fileBytes,
+    intLength,
+    intLength + saltLength,
+  );
 
   // Extract encrypted payload (IV + ciphertext + auth tag)
-  final Uint8List encryptedPayload =
-      Uint8List.sublistView(fileBytes, intLength + saltLength);
+  final Uint8List encryptedPayload = Uint8List.sublistView(
+    fileBytes,
+    intLength + saltLength,
+  );
 
   // Extract IV from encrypted payload (first 12 bytes)
   final Uint8List iv = Uint8List.sublistView(encryptedPayload, 0, ivLength);
 
   // Extract ciphertext + auth tag (remaining bytes)
-  final Uint8List ciphertextWithTag =
-      Uint8List.sublistView(encryptedPayload, ivLength);
+  final Uint8List ciphertextWithTag = Uint8List.sublistView(
+    encryptedPayload,
+    ivLength,
+  );
 
   // Derive key using PBKDF2 with HMAC-SHA1
   const int keyLength = 32; // 256 bits
@@ -242,12 +250,7 @@ String _decryptAndOTPBackup(_DecryptParams params) {
   pbkdf2.init(Pbkdf2Parameters(salt, iterations, keyLength));
 
   final Uint8List derivedKey = Uint8List(keyLength);
-  pbkdf2.deriveKey(
-    Uint8List.fromList(utf8.encode(password)),
-    0,
-    derivedKey,
-    0,
-  );
+  pbkdf2.deriveKey(Uint8List.fromList(utf8.encode(password)), 0, derivedKey, 0);
 
   // Decrypt using AES-GCM
   final cipher = GCMBlockCipher(AESEngine())

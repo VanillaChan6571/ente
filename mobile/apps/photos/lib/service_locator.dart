@@ -2,8 +2,7 @@ import "package:dio/dio.dart";
 import "package:ente_cast/ente_cast.dart";
 import "package:ente_feature_flag/ente_feature_flag.dart";
 import "package:package_info_plus/package_info_plus.dart";
-import "package:photos/app_mode.dart";
-import "package:photos/core/configuration.dart";
+import "package:photos/core/network/endpoint_config.dart";
 import "package:photos/gateways/billing/billing_gateway.dart";
 import "package:photos/gateways/collections/collection_files_gateway.dart";
 import "package:photos/gateways/collections/collection_share_gateway.dart";
@@ -49,6 +48,7 @@ class ServiceLocator {
   late final Dio enteDio;
   late final Dio nonEnteDio;
   late final PackageInfo packageInfo;
+  late final EndpointConfig endpointConfig;
 
   // instance
   ServiceLocator._privateConstructor();
@@ -65,8 +65,11 @@ class ServiceLocator {
     this.enteDio = enteDio;
     this.nonEnteDio = nonEnteDio;
     this.packageInfo = packageInfo;
+    endpointConfig = EndpointConfig(prefs);
   }
 }
+
+EndpointConfig get endpointConfig => ServiceLocator.instance.endpointConfig;
 
 FlagService? _flagService;
 
@@ -91,33 +94,37 @@ LocalSettings get localSettings {
   return _localSettings!;
 }
 
-bool get isOfflineMode => localSettings.appMode == AppMode.offline;
+/// Whether the app is currently showing the no-account local gallery experience.
+///
+/// This does not mean the device is offline. It means the active gallery mode is
+/// local-device focused rather than Ente-account focused.
+bool get isLocalGalleryMode => localSettings.isLocalGalleryMode;
 
 bool get hasGrantedMLConsent {
-  if (isOfflineMode) {
-    return localSettings.offlineMLConsent;
+  if (isLocalGalleryMode) {
+    return localSettings.localGalleryMLConsent;
   }
   return flagService.hasGrantedMLConsent;
 }
 
 Future<void> setMLConsent(bool enabled) async {
-  if (isOfflineMode) {
-    await localSettings.setOfflineMLConsent(enabled);
+  if (isLocalGalleryMode) {
+    await localSettings.setLocalGalleryMLConsent(enabled);
     return;
   }
   await flagService.setMLConsent(enabled);
 }
 
 bool get mapEnabled {
-  if (isOfflineMode) {
-    return localSettings.offlineMapEnabled;
+  if (isLocalGalleryMode) {
+    return localSettings.localGalleryMapEnabled;
   }
   return flagService.mapEnabled;
 }
 
 Future<void> setMapEnabled(bool enabled) async {
-  if (isOfflineMode) {
-    await localSettings.setOfflineMapEnabled(enabled);
+  if (isLocalGalleryMode) {
+    await localSettings.setLocalGalleryMapEnabled(enabled);
     return;
   }
   await flagService.setMapEnabled(enabled);
@@ -178,17 +185,13 @@ LocationService get locationService {
 
 MagicCacheService? _magicCacheService;
 MagicCacheService get magicCacheService {
-  _magicCacheService ??= MagicCacheService(
-    ServiceLocator.instance.prefs,
-  );
+  _magicCacheService ??= MagicCacheService(ServiceLocator.instance.prefs);
   return _magicCacheService!;
 }
 
 MemoriesCacheService? _memoriesCacheService;
 MemoriesCacheService get memoriesCacheService {
-  _memoriesCacheService ??= MemoriesCacheService(
-    ServiceLocator.instance.prefs,
-  );
+  _memoriesCacheService ??= MemoriesCacheService(ServiceLocator.instance.prefs);
   return _memoriesCacheService!;
 }
 
@@ -239,9 +242,7 @@ FileDataService get fileDataService {
 
 DownloadManager? _downloadManager;
 DownloadManager get downloadManager {
-  _downloadManager ??= DownloadManager(
-    ServiceLocator.instance.nonEnteDio,
-  );
+  _downloadManager ??= DownloadManager(ServiceLocator.instance.nonEnteDio);
   return _downloadManager!;
 }
 
@@ -332,15 +333,17 @@ TrashGateway get trashGateway {
 
 CollectionFilesGateway? _collectionFilesGateway;
 CollectionFilesGateway get collectionFilesGateway {
-  _collectionFilesGateway ??=
-      CollectionFilesGateway(ServiceLocator.instance.enteDio);
+  _collectionFilesGateway ??= CollectionFilesGateway(
+    ServiceLocator.instance.enteDio,
+  );
   return _collectionFilesGateway!;
 }
 
 CollectionShareGateway? _collectionShareGateway;
 CollectionShareGateway get collectionShareGateway {
-  _collectionShareGateway ??=
-      CollectionShareGateway(ServiceLocator.instance.enteDio);
+  _collectionShareGateway ??= CollectionShareGateway(
+    ServiceLocator.instance.enteDio,
+  );
   return _collectionShareGateway!;
 }
 
@@ -367,7 +370,7 @@ UsersGateway get usersGateway {
   _usersGateway ??= UsersGateway(
     ServiceLocator.instance.enteDio,
     ServiceLocator.instance.nonEnteDio,
-    Configuration.instance,
+    endpointConfig,
   );
   return _usersGateway!;
 }

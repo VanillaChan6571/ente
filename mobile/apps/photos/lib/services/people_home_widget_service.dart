@@ -152,10 +152,7 @@ class PeopleHomeWidgetService {
     );
   }
 
-  Future<void> onLaunchFromWidget(
-    int fileId,
-    String personId,
-  ) async {
+  Future<void> onLaunchFromWidget(int fileId, String personId) async {
     final file = await FilesDB.instance.getFile(fileId);
     if (file == null) {
       _logger.warning("Cannot launch widget: file with ID $fileId not found");
@@ -164,17 +161,15 @@ class PeopleHomeWidgetService {
 
     final person = await PersonService.instance.getPerson(personId);
     if (person == null) {
-      _logger
-          .warning("Cannot launch widget: person with ID $personId not found");
+      _logger.warning(
+        "Cannot launch widget: person with ID $personId not found",
+      );
       return;
     }
 
     AppNavigationService.instance
         .pushPage(
-          PeoplePage(
-            person: person,
-            searchResult: null,
-          ),
+          PeoplePage(person: person, searchResult: null),
           forceCustomPageRoute: true,
         )
         .ignore();
@@ -187,11 +182,7 @@ class PeopleHomeWidgetService {
     AppNavigationService.instance
         .pushPage(
           DetailPage(
-            DetailPageConfiguration(
-              files,
-              files.indexOf(file),
-              "peoplewidget",
-            ),
+            DetailPageConfiguration(files, files.indexOf(file), "peoplewidget"),
           ),
           forceCustomPageRoute: true,
         )
@@ -225,14 +216,14 @@ class PeopleHomeWidgetService {
     }
 
     // Check if first import is completed
-    final hasCompletedFirstImport =
-        LocalSyncService.instance.hasCompletedFirstImportOrBypassed();
+    final hasCompletedFirstImport = LocalSyncService.instance
+        .hasCompletedFirstImportOrBypassed();
     if (!hasCompletedFirstImport) {
       return true;
     }
 
     // Check ML consent
-    if (isOfflineMode || !hasGrantedMLConsent) {
+    if (isLocalGalleryMode || !hasGrantedMLConsent) {
       return true;
     }
 
@@ -358,15 +349,15 @@ class PeopleHomeWidgetService {
 
       final renderResult = await HomeWidgetService.instance
           .renderFile(
-        randomPersonFile,
-        "people_widget_$renderedCount",
-        personName,
-        personId,
-      )
+            randomPersonFile,
+            "people_widget_$renderedCount",
+            personName,
+            personId,
+          )
           .catchError((e, stackTrace) {
-        _logger.severe("Error rendering widget", e, stackTrace);
-        return null;
-      });
+            _logger.severe("Error rendering widget", e, stackTrace);
+            return null;
+          });
 
       if (renderResult != null) {
         // Check for blockers again before continuing

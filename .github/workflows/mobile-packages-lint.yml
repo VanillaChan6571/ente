@@ -1,28 +1,24 @@
 name: "Lint (mobile packages)"
 
 on:
-    # Run when mobile/packages or shared photos Rust changes
     pull_request:
         paths:
             - "mobile/packages/**"
             - "mobile/**/pubspec*.yaml"
             - "mobile/**/pubspec.lock"
-            - "rust/photos/**"
             - ".github/workflows/mobile-packages-lint.yml"
             - "mobile/scripts/check_frozen_pubspecs.rb"
+            - "mobile/scripts/check_source_arb_plurals.rb"
             - ".github/scripts/get-affected-packages.sh"
             - "mobile/analysis_options.yaml"
     # Allow manual trigger for testing
     workflow_dispatch:
 
 env:
-    FLUTTER_VERSION: "3.32.8"
-    RUST_VERSION: "1.90.0"
-    RUSTFLAGS: -D warnings
+    FLUTTER_VERSION: "3.38.10"
 
 permissions:
     contents: read
-    pull-requests: read  # Required for paths-filter
 
 jobs:
     detect-changes:
@@ -33,30 +29,9 @@ jobs:
             lint_auth: ${{ steps.filter.outputs.lint_auth }}
             lint_locker: ${{ steps.filter.outputs.lint_locker }}
             lint_all: ${{ steps.filter.outputs.lint_all }}
-            rust_changed: ${{ steps.filter.outputs.rust_changed }}
         steps:
             - name: Checkout code
               uses: actions/checkout@v6
-
-            - name: Detect changed files
-              uses: dorny/paths-filter@v3
-              id: changes
-              with:
-                  filters: |
-                      rust:
-                        - 'mobile/packages/rust/**/*.rs'
-                        - 'mobile/packages/rust/**/Cargo.toml'
-                        - 'mobile/packages/rust/**/Cargo.lock'
-                        - 'mobile/apps/photos/rust/**/*.rs'
-                        - 'mobile/apps/photos/rust/**/Cargo.toml'
-                        - 'rust/photos/**'
-                        - 'rust/core/**/*.rs'
-                      workflow:
-                        - '.github/workflows/mobile-packages-lint.yml'
-                      analysis:
-                        - 'mobile/analysis_options.yaml'
-                      packages:
-                        - 'mobile/packages/**'
 
             - name: Determine affected packages
               id: filter
@@ -83,14 +58,12 @@ jobs:
                   echo "lint_auth=$LINT_AUTH" >> $GITHUB_OUTPUT
                   echo "lint_locker=$LINT_LOCKER" >> $GITHUB_OUTPUT
                   echo "lint_all=$LINT_ALL" >> $GITHUB_OUTPUT
-                  echo "rust_changed=${{ steps.changes.outputs.rust }}" >> $GITHUB_OUTPUT
 
                   echo "Affected packages: $PACKAGES"
                   echo "Lint photos: $LINT_PHOTOS"
                   echo "Lint auth: $LINT_AUTH"
                   echo "Lint locker: $LINT_LOCKER"
                   echo "Lint all: $LINT_ALL"
-                  echo "Rust changed: ${{ steps.changes.outputs.rust }}"
 
     pubspec-constraints:
         runs-on: ubuntu-latest
@@ -101,6 +74,9 @@ jobs:
 
             - name: Verify frozen mobile pubspecs
               run: ruby mobile/scripts/check_frozen_pubspecs.rb mobile
+
+            - name: Verify source ARB plurals
+              run: ruby mobile/scripts/check_source_arb_plurals.rb
 
     packages-lint:
         needs: detect-changes
@@ -118,27 +94,11 @@ jobs:
                   flutter-version: ${{ env.FLUTTER_VERSION  }}
                   cache: true
 
-            - name: Install Rust ${{ env.RUST_VERSION }}
-              uses: dtolnay/rust-toolchain@stable
-              with:
-                  toolchain: ${{ env.RUST_VERSION }}
-                  components: rustfmt,clippy
+            - run: cargo codegen frb
+              working-directory: rust
 
-            - name: Cache Rust dependencies
-              uses: actions/cache@v4
-              with:
-                  path: |
-                      ~/.cargo/registry
-                      ~/.cargo/git
-                      mobile/packages/rust/rust/target
-                  key: ${{ runner.os }}-cargo-packages-${{ hashFiles('mobile/packages/**/Cargo.lock') }}
-
-            - name: Install Flutter Rust Bridge
-              run: cargo install flutter_rust_bridge_codegen
-
-            - name: Generate Rust bindings (Core)
-              run: flutter_rust_bridge_codegen generate
-              working-directory: mobile/packages/rust
+            - run: cargo clippy -p ente_rust --features flutter --all-targets --locked -- -D warnings
+              working-directory: rust
 
             - name: Generate strings localizations
               run: flutter gen-l10n
@@ -245,79 +205,6 @@ jobs:
               run: flutter pub get --enforce-lockfile && flutter analyze --no-fatal-infos
               working-directory: mobile/packages/utils
 
-    rust-lint:
-        needs: detect-changes
-        runs-on: ubuntu-latest
-        if: needs.detect-changes.outputs.rust_changed == 'true'
-        steps:
-            - name: Checkout code
-              uses: actions/checkout@v6
-
-            - name: Install Flutter ${{ env.FLUTTER_VERSION  }}
-              uses: subosito/flutter-action@v2
-              with:
-                  channel: "stable"
-                  flutter-version: ${{ env.FLUTTER_VERSION  }}
-                  cache: true
-
-            - name: Install Rust ${{ env.RUST_VERSION }}
-              uses: dtolnay/rust-toolchain@stable
-              with:
-                  toolchain: ${{ env.RUST_VERSION }}
-                  components: rustfmt,clippy
-
-            - name: Cache Rust dependencies
-              uses: actions/cache@v4
-              with:
-                  path: |
-                      ~/.cargo/registry
-                      ~/.cargo/git
-                      mobile/packages/rust/rust/target
-                  key: ${{ runner.os }}-cargo-packages-${{ hashFiles('mobile/packages/**/Cargo.lock') }}
-
-            - name: Install Flutter Rust Bridge
-              run: cargo install flutter_rust_bridge_codegen
-
-            - name: Generate Rust bindings (Core)
-              run: flutter_rust_bridge_codegen generate
-              working-directory: mobile/packages/rust
-
-            - name: Check formatting (ente_rust)
-              working-directory: mobile/packages/rust/rust
-              run: cargo fmt -- src/frb_generated.rs && cargo fmt --check
-
-            - name: Run clippy (ente_rust)
-              working-directory: mobile/packages/rust/rust
-              run: cargo clippy --all-targets --all-features
-
-            - name: Build (ente_rust)
-              working-directory: mobile/packages/rust/rust
-              run: cargo build
-
-            - name: Test (ente_rust)
-              working-directory: mobile/packages/rust/rust
-              run: cargo test
-
-            - name: Generate Rust bindings (photos app)
-              run: flutter_rust_bridge_codegen generate
-              working-directory: mobile/apps/photos
-
-            - name: Check formatting (ente_photos_rust)
-              working-directory: mobile/apps/photos/rust
-              run: cargo fmt -- src/frb_generated.rs && cargo fmt --check
-
-            - name: Run clippy (ente_photos_rust)
-              working-directory: mobile/apps/photos/rust
-              run: cargo clippy --all-targets --all-features
-
-            - name: Build (ente_photos_rust)
-              working-directory: mobile/apps/photos/rust
-              run: cargo build
-
-            - name: Test (ente_photos_rust)
-              working-directory: mobile/apps/photos/rust
-              run: cargo test
-
     apps-lint:
         needs: detect-changes
         runs-on: ubuntu-latest
@@ -340,35 +227,17 @@ jobs:
                   flutter-version: ${{ env.FLUTTER_VERSION  }}
                   cache: true
 
-            - name: Install Rust ${{ env.RUST_VERSION }}
-              if: needs.detect-changes.outputs.lint_photos == 'true' || needs.detect-changes.outputs.lint_locker == 'true'
-              uses: dtolnay/rust-toolchain@stable
-              with:
-                  toolchain: ${{ env.RUST_VERSION }}
-                  components: rustfmt,clippy
+            - if: needs.detect-changes.outputs.lint_photos == 'true' || needs.detect-changes.outputs.lint_locker == 'true'
+              run: cargo codegen frb
+              working-directory: rust
 
-            - name: Cache Rust dependencies
-              uses: actions/cache@v4
-              with:
-                  path: |
-                      ~/.cargo/registry
-                      ~/.cargo/git
-                      mobile/packages/rust/rust/target
-                  key: ${{ runner.os }}-cargo-packages-${{ hashFiles('mobile/packages/**/Cargo.lock') }}
+            - if: needs.detect-changes.outputs.lint_photos == 'true'
+              run: cargo clippy -p ente_photos_rust --features flutter --all-targets --locked -- -D warnings
+              working-directory: rust
 
-            - name: Install Flutter Rust Bridge
-              if: needs.detect-changes.outputs.lint_photos == 'true' || needs.detect-changes.outputs.lint_locker == 'true'
-              run: cargo install flutter_rust_bridge_codegen
-
-            - name: Generate Rust bindings (Core package)
-              if: needs.detect-changes.outputs.lint_photos == 'true' || needs.detect-changes.outputs.lint_locker == 'true'
-              run: flutter_rust_bridge_codegen generate
-              working-directory: mobile/packages/rust
-
-            - name: Generate Rust bindings (photos app)
-              if: needs.detect-changes.outputs.lint_photos == 'true'
-              run: flutter_rust_bridge_codegen generate
-              working-directory: mobile/apps/photos
+            - if: needs.detect-changes.outputs.lint_locker == 'true'
+              run: cargo clippy -p ente_rust --features flutter --all-targets --locked -- -D warnings
+              working-directory: rust
 
             - name: Generate strings localizations
               run: flutter gen-l10n
@@ -376,15 +245,26 @@ jobs:
 
             - name: Lint app - photos
               if: needs.detect-changes.outputs.lint_photos == 'true'
-              run: flutter pub get --enforce-lockfile && flutter analyze --no-fatal-infos
+              run: |
+                  flutter pub get --enforce-lockfile
+                  flutter analyze --no-fatal-infos
+                  flutter test
               working-directory: mobile/apps/photos
 
             - name: Lint app - auth
               if: needs.detect-changes.outputs.lint_auth == 'true'
-              run: flutter pub get --enforce-lockfile && flutter analyze --no-fatal-infos
+              run: |
+                  flutter pub get --enforce-lockfile
+                  flutter gen-l10n
+                  flutter analyze --no-fatal-infos
+                  flutter test
               working-directory: mobile/apps/auth
 
             - name: Lint app - locker
               if: needs.detect-changes.outputs.lint_locker == 'true'
-              run: flutter pub get --enforce-lockfile && flutter analyze --no-fatal-infos
+              run: |
+                  flutter pub get --enforce-lockfile
+                  flutter gen-l10n
+                  flutter analyze --no-fatal-infos
+                  flutter test
               working-directory: mobile/apps/locker

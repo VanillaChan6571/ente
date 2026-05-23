@@ -4,11 +4,11 @@ import { getKVS } from "ente-base/kv";
  * Return the origin (scheme, host, port triple) that should be used for making
  * API requests to museum.
  *
- * This defaults "https://api.ente.io", Ente's production API servers. but can
+ * This defaults "https://api.ente.com", Ente's production API servers, but can
  * be overridden when self hosting or developing (see {@link customAPIOrigin}).
  */
 export const apiOrigin = async () =>
-    (await customAPIOrigin()) ?? "https://api.ente.io";
+    (await customAPIOrigin()) ?? "https://api.ente.com";
 
 /**
  * A convenience function to construct an endpoint in a one-liner.
@@ -60,6 +60,12 @@ export const customAPIOrigin = async () =>
     undefined;
 
 /**
+ * A static build time constant that is `true` if the API origin has been
+ * customized through the environment.
+ */
+export const isCustomAPIOrigin = !!process.env.NEXT_PUBLIC_ENTE_ENDPOINT;
+
+/**
  * A convenience wrapper over {@link customAPIOrigin} that returns the only the
  * host part of the custom origin (if any).
  *
@@ -73,70 +79,10 @@ export const customAPIHost = async () => {
 /**
  * Return the origin that should be used for uploading files.
  *
- * This defaults to `https://uploader.ente.io`, serviced by a Cloudflare worker
+ * This defaults to `https://uploader.ente.com`, serviced by a Cloudflare worker
  * (see infra/workers/uploader). But if a {@link customAPIOrigin} is set then
  * this value is set to the {@link customAPIOrigin} itself, effectively
  * bypassing the Cloudflare worker for non-Ente deployments.
  */
 export const uploaderOrigin = async () =>
-    (await customAPIOrigin()) ?? "https://uploader.ente.io";
-
-/**
- * A static build time constant that is `true` if {@link albumsAppOrigin} has
- * been customized.
- */
-export const isCustomAlbumsAppOrigin =
-    !!process.env.NEXT_PUBLIC_ENTE_ALBUMS_ENDPOINT;
-
-/**
- * Return the origin that serves public albums.
- *
- * Defaults to our production instance, "https://albums.ente.io", but can be
- * overridden by setting the `NEXT_PUBLIC_ENTE_ALBUMS_ENDPOINT` environment
- * variable.
- */
-export const albumsAppOrigin = () =>
-    process.env.NEXT_PUBLIC_ENTE_ALBUMS_ENDPOINT ?? "https://albums.ente.io";
-
-/**
- * Return true if this build is Ente's official public albums deployment.
- */
-export const isOfficialAlbumsApp =
-    !!process.env.NEXT_PUBLIC_ENTE_OFFICIAL_ALBUMS_APP;
-
-/**
- * A static build time constant that is `true` if {@link shareAppOrigin} has
- * been customized.
- */
-export const isCustomShareAppOrigin =
-    !!process.env.NEXT_PUBLIC_ENTE_SHARE_ENDPOINT;
-
-/**
- * Return the origin that serves public locker (share app).
- *
- * Defaults to our production instance, "https://share.ente.io", but can be
- * overridden by setting the `NEXT_PUBLIC_ENTE_SHARE_ENDPOINT` environment
- * variable.
- */
-export const shareAppOrigin = (): string =>
-    process.env.NEXT_PUBLIC_ENTE_SHARE_ENDPOINT ?? "https://share.ente.io";
-
-/**
- * Return the origin/path that serves the memories app landing experience.
- *
- * Defaults to our production memories app, "https://ente.com",
- * but can be overridden by setting the `NEXT_PUBLIC_ENTE_MEMORIES_ENDPOINT`
- * environment variable.
- */
-export const memoriesAppOrigin = (): string =>
-    process.env.NEXT_PUBLIC_ENTE_MEMORIES_ENDPOINT ?? "https://ente.com";
-
-/**
- * Return the origin that serves the photos app.
- *
- * Defaults to our production instance, "https://web.ente.io", but can be
- * overridden by setting the `NEXT_PUBLIC_ENTE_PHOTOS_ENDPOINT` environment
- * variable.
- */
-export const photosAppOrigin = (): string =>
-    process.env.NEXT_PUBLIC_ENTE_PHOTOS_ENDPOINT ?? "https://web.ente.io";
+    (await customAPIOrigin()) ?? "https://uploader.ente.com";

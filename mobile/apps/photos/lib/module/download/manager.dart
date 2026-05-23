@@ -14,6 +14,8 @@ class DownloadManager {
   static const String noConnectionError = 'NO_CONNECTION';
   static const String notEnoughStorageError = 'NOT_ENOUGH_STORAGE';
   static const String unavailableError = 'UNAVAILABLE';
+  static const String applePhotosUnsupportedResourceError =
+      'APPLE_PHOTOS_UNSUPPORTED_RESOURCE';
 
   final Dio _dio;
 
@@ -58,12 +60,9 @@ class DownloadManager {
 
     // Get or create task
     final existingTask = _tasks[fileId];
-    final task = existingTask ??
-        DownloadTask(
-          id: fileId,
-          filename: filename,
-          totalBytes: totalBytes,
-        );
+    final task =
+        existingTask ??
+        DownloadTask(id: fileId, filename: filename, totalBytes: totalBytes);
 
     // Store task in memory
     _tasks[fileId] = task;
@@ -191,8 +190,11 @@ class DownloadManager {
 
       // Check existing chunks and calculate progress
       final totalChunks = (task.totalBytes / downloadChunkSize).ceil();
-      final existingChunks =
-          await _validateExistingChunks(basePath, task.totalBytes, totalChunks);
+      final existingChunks = await _validateExistingChunks(
+        basePath,
+        task.totalBytes,
+        totalChunks,
+      );
 
       task = task.copyWith(
         bytesDownloaded: _calculateDownloadedBytes(
@@ -206,6 +208,7 @@ class DownloadManager {
       _logger.info(
         'Resuming download for ${task.filename} (${task.bytesDownloaded}/${task.totalBytes} bytes)',
       );
+      String? downloadUrl;
       for (int i = 0; i < totalChunks; i++) {
         if (existingChunks[i]) {
           continue;
@@ -214,7 +217,15 @@ class DownloadManager {
           _logger.info('Download cancelled for ${task.filename}');
           break;
         }
-        await _downloadChunk(task, basePath, i, totalChunks, cancelToken);
+        downloadUrl ??= await _resolveDownloadRedirect(task.id, cancelToken);
+        await _downloadChunk(
+          task,
+          basePath,
+          i,
+          totalChunks,
+          cancelToken,
+          downloadUrl,
+        );
         existingChunks[i] = true;
       }
 
@@ -286,7 +297,11 @@ class DownloadManager {
           'but got $actualSize bytes',
         );
         existingChunks[i] = false;
-        // await chunkFile.delete(); // Remove corrupted chunk
+        try {
+          await chunkFile.delete();
+        } catch (e) {
+          _logger.warning('Failed to delete corrupted chunk ${i + 1}', e);
+        }
       }
     }
 
@@ -315,6 +330,7 @@ class DownloadManager {
     int chunkIndex,
     int totalChunks,
     CancelToken cancelToken,
+    String downloadUrl,
   ) async {
     final chunkPath = _getChunkPath(basePath, chunkIndex + 1);
     final startByte = chunkIndex * downloadChunkSize;
@@ -323,15 +339,10 @@ class DownloadManager {
         : (startByte + downloadChunkSize) - 1;
     _logger.info('Downloading chunk ${chunkIndex + 1}/$totalChunks');
     await _dio.download(
-      FileUrl.getUrl(task.id, FileUrlType.directDownload),
+      downloadUrl,
       chunkPath,
-      queryParameters: {
-        "token": Configuration.instance.getToken(),
-      },
       options: Options(
-        headers: {
-          "Range": "bytes=$startByte-$endByte",
-        },
+        headers: {HttpHeaders.rangeHeader: "bytes=$startByte-$endByte"},
       ),
       cancelToken: cancelToken,
       onReceiveProgress: (received, total) async {
@@ -347,6 +358,34 @@ class DownloadManager {
       bytesDownloaded: (chunkIndex) * downloadChunkSize + chunkFileSize,
     );
     _updateTask(task);
+  }
+
+  Future<String> _resolveDownloadRedirect(
+    int fileID,
+    CancelToken cancelToken,
+  ) async {
+    final response = await _dio.get<void>(
+      FileUrl.getUrl(fileID, FileUrlType.directDownload),
+      options: Options(
+        followRedirects: false,
+        receiveDataWhenStatusError: false,
+        headers: {"X-Auth-Token": Configuration.instance.getToken()},
+        validateStatus: (status) {
+          return status != null &&
+              status >= HttpStatus.multipleChoices &&
+              status < HttpStatus.badRequest;
+        },
+      ),
+      cancelToken: cancelToken,
+    );
+    final location = response.headers.value(HttpHeaders.locationHeader);
+    if (location == null || location.isEmpty) {
+      throw StateError(
+        'Missing redirect location for file $fileID '
+        '(status ${response.statusCode})',
+      );
+    }
+    return location;
   }
 
   Future<String> _combineChunks(String basePath, int totalChunks) async {

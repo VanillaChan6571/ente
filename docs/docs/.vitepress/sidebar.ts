@@ -219,6 +219,10 @@ export const sidebar = [
                         collapsed: true,
                         items: [
                             {
+                                text: "Android gallery integration",
+                                link: "/photos/features/utilities/android-gallery",
+                            },
+                            {
                                 text: "Cast",
                                 link: "/photos/features/utilities/cast/",
                             },
@@ -329,6 +333,10 @@ export const sidebar = [
             { text: "Introduction", link: "/auth/" },
             { text: "Features", link: "/auth/features/" },
             {
+                text: "Offline mode",
+                link: "/auth/features/offline-mode",
+            },
+            {
                 text: "FAQ",
                 collapsed: true,
                 items: [
@@ -354,8 +362,16 @@ export const sidebar = [
                         link: "/auth/migration/authy/",
                     },
                     {
+                        text: "From Microsoft Authenticator",
+                        link: "/auth/migration/microsoft-authenticator/",
+                    },
+                    {
                         text: "From Steam",
                         link: "/auth/migration/steam/",
+                    },
+                    {
+                        text: "From Others",
+                        link: "/auth/migration/import",
                     },
                     {
                         text: "Export",
@@ -491,6 +507,10 @@ export const sidebar = [
                             {
                                 text: "Overview",
                                 link: "/locker/features/legacy/",
+                            },
+                            {
+                                text: "Legacy Kits",
+                                link: "/locker/features/legacy/legacy-kits",
                             },
                         ],
                     },

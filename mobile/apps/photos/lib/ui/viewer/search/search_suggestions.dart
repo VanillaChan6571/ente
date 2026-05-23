@@ -14,6 +14,7 @@ import 'package:photos/models/search/search_result.dart';
 import "package:photos/models/search/search_types.dart";
 import "package:photos/services/collections_service.dart";
 import "package:photos/theme/ente_theme.dart";
+import "package:photos/ui/components/thumbnail_list_item.dart";
 import "package:photos/ui/viewer/gallery/collection_page.dart";
 import "package:photos/ui/viewer/gallery/device_folder_page.dart";
 import "package:photos/ui/viewer/search/result/search_result_widget.dart";
@@ -24,9 +25,7 @@ import "package:photos/ui/viewer/search/search_widget.dart";
 ///fast. Instead, we usi a queue to store the events and then generate the
 ///widgets from the queue at regular intervals.
 class SearchSuggestionsWidget extends StatefulWidget {
-  const SearchSuggestionsWidget({
-    super.key,
-  });
+  const SearchSuggestionsWidget({super.key});
 
   @override
   State<SearchSuggestionsWidget> createState() =>
@@ -70,12 +69,13 @@ class _SearchSuggestionsWidgetState extends State<SearchSuggestionsWidget> {
         },
         onDone: () {
           Future.delayed(
-              const Duration(milliseconds: _surfaceNewResultsInterval + 20),
-              () {
-            if (_resultsCount == 0) {
-              IndexOfStackNotifier().searchState = SearchState.empty;
-            }
-          });
+            const Duration(milliseconds: _surfaceNewResultsInterval + 20),
+            () {
+              if (_resultsCount == 0) {
+                IndexOfStackNotifier().searchState = SearchState.empty;
+              }
+            },
+          );
           SearchWidgetState.isLoading.value = false;
         },
       );
@@ -99,15 +99,17 @@ class _SearchSuggestionsWidgetState extends State<SearchSuggestionsWidget> {
   ///updates the UI.
   void generateResultWidgetsInIntervalsFromQueue() {
     timer = Timer.periodic(
-        const Duration(milliseconds: _surfaceNewResultsInterval), (timer) {
-      if (queueOfSearchResults.isNotEmpty) {
-        for (List<SearchResult> event in queueOfSearchResults) {
-          _addResultsToSections(event);
+      const Duration(milliseconds: _surfaceNewResultsInterval),
+      (timer) {
+        if (queueOfSearchResults.isNotEmpty) {
+          for (List<SearchResult> event in queueOfSearchResults) {
+            _addResultsToSections(event);
+          }
+          queueOfSearchResults.clear();
+          setState(() {});
         }
-        queueOfSearchResults.clear();
-        setState(() {});
-      }
-    });
+      },
+    );
   }
 
   @override
@@ -124,7 +126,7 @@ class _SearchSuggestionsWidgetState extends State<SearchSuggestionsWidget> {
     final colorScheme = getEnteColorScheme(context);
     final textTheme = getEnteTextTheme(context);
     final resultsBackground = EnteTheme.isDark(context)
-        ? const Color.fromRGBO(22, 22, 22, 1)
+        ? colorScheme.backgroundColour
         : colorScheme.backgroundElevated2;
     final sectionWidgets = _buildSectionWidgets(context);
     if (_resultsCount > 0) {
@@ -133,9 +135,9 @@ class _SearchSuggestionsWidgetState extends State<SearchSuggestionsWidget> {
         Padding(
           padding: const EdgeInsets.fromLTRB(4, 4, 4, 12),
           child: Text(
-            AppLocalizations.of(context).searchResultCount(
-              count: _resultsCount,
-            ),
+            AppLocalizations.of(
+              context,
+            ).searchResultCount(count: _resultsCount),
             style: textTheme.smallBold.copyWith(color: colorScheme.textMuted),
           ),
         ),
@@ -203,11 +205,9 @@ class _SearchSuggestionsWidgetState extends State<SearchSuggestionsWidget> {
 
 class SearchResultsWidgetGenerator extends StatelessWidget {
   final SearchResult result;
-  final BorderRadius borderRadius;
   final bool showTypeLabel;
   const SearchResultsWidgetGenerator(
     this.result, {
-    this.borderRadius = BorderRadius.zero,
     this.showTypeLabel = true,
     super.key,
   });
@@ -221,7 +221,6 @@ class SearchResultsWidgetGenerator extends StatelessWidget {
         resultCount: CollectionsService.instance.getFileCount(
           albumSearchResult.collectionWithThumbnail.collection,
         ),
-        borderRadius: borderRadius,
         showTypeLabel: showTypeLabel,
         onResultTap: () => routeToPage(
           context,
@@ -236,7 +235,6 @@ class SearchResultsWidgetGenerator extends StatelessWidget {
       return SearchResultWidget(
         result,
         resultCount: Future.value(deviceResult.deviceCollection.count),
-        borderRadius: borderRadius,
         showTypeLabel: showTypeLabel,
         onResultTap: () => routeToPage(
           context,
@@ -246,7 +244,6 @@ class SearchResultsWidgetGenerator extends StatelessWidget {
     } else if (result is GenericSearchResult) {
       return SearchResultWidget(
         result,
-        borderRadius: borderRadius,
         showTypeLabel: showTypeLabel,
         onResultTap: (result as GenericSearchResult).onResultTap != null
             ? () => (result as GenericSearchResult).onResultTap!(context)
@@ -370,18 +367,20 @@ class _SearchResultsSectionWidget extends StatelessWidget {
           color: colorScheme.backgroundElevated,
           borderRadius: radius,
           clipBehavior: Clip.antiAlias,
-          child: SearchResultsWidgetGenerator(
-            results[i],
-            borderRadius: radius,
-            showTypeLabel: showTypeLabel,
-          ).animate().fadeIn(
+          child:
+              SearchResultsWidgetGenerator(
+                results[i],
+                showTypeLabel: showTypeLabel,
+              ).animate().fadeIn(
                 duration: const Duration(milliseconds: 80),
                 curve: Curves.easeIn,
               ),
         ),
       );
       if (i != results.length - 1) {
-        children.add(const SizedBox(height: 4));
+        children.add(
+          const SizedBox(height: ThumbnailListItem.defaultItemSpacing),
+        );
       }
     }
 
@@ -405,10 +404,7 @@ class _SearchResultsSectionWidget extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 10),
-              Text(
-                title,
-                style: textTheme.bodyBold,
-              ),
+              Text(title, style: textTheme.bodyBold),
             ],
           ),
         ),

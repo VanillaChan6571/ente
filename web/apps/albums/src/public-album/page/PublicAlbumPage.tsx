@@ -74,12 +74,7 @@ import {
     type PublicAlbumsCredentials,
 } from "ente-base/http";
 import log from "ente-base/log";
-import {
-    albumsAppOrigin,
-    isCustomAlbumsAppOrigin,
-    isOfficialAlbumsApp,
-    photosAppOrigin,
-} from "ente-base/origins";
+import { apiOrigin, isCustomAPIOrigin } from "ente-base/origins";
 import type { Collection } from "ente-media/collection";
 import { type EnteFile } from "ente-media/file";
 import { fileFileName } from "ente-media/file-metadata";
@@ -241,40 +236,43 @@ export default function PublicAlbumPage() {
             continue: {
                 text: t("login"),
                 action: async () => {
-                    if (isOfficialAlbumsApp) {
-                        window.location.href = photosAppOrigin();
-                        return;
+                    if (isCustomAPIOrigin) {
+                        await router.push("/");
+                    } else {
+                        window.location.href = "https://photos.ente.com";
                     }
-                    await router.push("/");
                 },
             },
             cancel: false,
         });
 
     /**
-     * Check if we need to redirect Trip albums from custom domains to albums.ente.io
+     * Check if we need to redirect Trip albums from custom domains to albums.ente.com
      * Returns true if a redirect was initiated, false otherwise.
      * Reason: custom domains do not support the Trip layout fully
      */
     const checkAndRedirectForTripAlbum = (collection: Collection): boolean => {
         if (
-            collection.pubMagicMetadata?.data.layout === "trip" &&
-            isOfficialAlbumsApp
+            isCustomAPIOrigin ||
+            collection.pubMagicMetadata?.data.layout !== "trip"
         ) {
-            const currentURL = new URL(window.location.href);
-            const albumsURL = new URL(albumsAppOrigin());
-
-            if (currentURL.host !== albumsURL.host) {
-                isRedirectingToAlbumsAppRef.current = true;
-
-                albumsURL.search = currentURL.search;
-                albumsURL.hash = currentURL.hash;
-
-                window.location.href = albumsURL.href;
-                return true;
-            }
+            return false;
         }
-        return false;
+
+        const currentURL = new URL(window.location.href);
+        const albumsURL = new URL("https://albums.ente.com");
+
+        if (currentURL.host === albumsURL.host) {
+            return false;
+        }
+
+        isRedirectingToAlbumsAppRef.current = true;
+
+        albumsURL.search = currentURL.search;
+        albumsURL.hash = currentURL.hash;
+
+        window.location.href = albumsURL.href;
+        return true;
     };
 
     useEffect(() => {
@@ -290,6 +288,7 @@ export default function PublicAlbumPage() {
                 const [
                     { extractCollectionKeyFromShareURL },
                     {
+                        savedPublicCollectionLinkDeviceToken,
                         savedPublicCollectionAccessTokenJWT,
                         savedPublicCollectionByKey,
                         savedPublicCollectionFiles,
@@ -300,8 +299,8 @@ export default function PublicAlbumPage() {
                 ]);
                 const ck = await extractCollectionKeyFromShareURL(currentURL);
                 if (!t && !ck) {
-                    // Only redirect to ente.com if this is NOT a custom/self-hosted instance
-                    if (!isCustomAlbumsAppOrigin) {
+                    // Only redirect to ente.com if this is not a self-hosted instance.
+                    if (!isCustomAPIOrigin) {
                         window.location.href = "https://ente.com";
                         redirectingToWebsite = true;
                     }
@@ -312,7 +311,13 @@ export default function PublicAlbumPage() {
                 collectionKey.current = ck;
                 const collection = await savedPublicCollectionByKey(ck);
                 const accessToken = t;
+                const currentAPIOrigin = await apiOrigin();
                 let accessTokenJWT: string | undefined;
+                const linkDeviceToken =
+                    await savedPublicCollectionLinkDeviceToken(
+                        currentAPIOrigin,
+                        accessToken,
+                    );
                 if (collection) {
                     setPublicCollection(collection);
                     setIsPasswordProtected(
@@ -327,7 +332,11 @@ export default function PublicAlbumPage() {
                     accessTokenJWT =
                         await savedPublicCollectionAccessTokenJWT(accessToken);
                 }
-                credentials.current = { accessToken, accessTokenJWT };
+                credentials.current = {
+                    accessToken,
+                    accessTokenJWT,
+                    linkDeviceToken,
+                };
                 setPublicAlbumsCredentials(credentials.current);
                 await publicAlbumsRemotePull();
             } finally {
@@ -382,15 +391,27 @@ export default function PublicAlbumPage() {
                     pullPublicCollectionFiles,
                     removePublicCollectionFileData,
                 },
-                { removePublicCollectionAccessTokenJWT },
+                {
+                    removePublicCollectionAccessTokenJWT,
+                    savePublicCollectionLinkDeviceToken,
+                },
             ] = await Promise.all([
                 loadPublicCollectionService(),
                 loadPublicAlbumsFDB(),
             ]);
-            const { collection } = await pullCollection(
-                accessToken,
+            const { collection, linkDeviceToken } = await pullCollection(
+                credentials.current!,
                 collectionKey.current!,
             );
+            if (linkDeviceToken) {
+                credentials.current!.linkDeviceToken = linkDeviceToken;
+                setPublicAlbumsCredentials(credentials.current);
+                await savePublicCollectionLinkDeviceToken(
+                    await apiOrigin(),
+                    accessToken,
+                    linkDeviceToken,
+                );
+            }
 
             if (checkAndRedirectForTripAlbum(collection)) {
                 return;
@@ -603,7 +624,9 @@ export default function PublicAlbumPage() {
 
     const commentsEnabled =
         publicCollection?.publicURLs[0]?.enableComment ?? false;
-    const joinEnabled = publicCollection?.publicURLs[0]?.enableJoin ?? false;
+    const joinEnabled =
+        !isCustomAPIOrigin &&
+        (publicCollection?.publicURLs[0]?.enableJoin ?? false);
     const handleDrop = useCallback((files: FileWithPath[]) => {
         setShouldRenderUpload(true);
         setDragAndDropFiles(files);
@@ -720,7 +743,7 @@ export default function PublicAlbumPage() {
                     collectionKey={collectionKey.current!}
                     enableDownload={downloadEnabled}
                     enableComment={commentsEnabled}
-                    enableJoin={publicCollection.publicURLs[0]?.enableJoin}
+                    enableJoin={joinEnabled}
                     onJoinAlbum={handleJoinAlbum}
                     onVisualFeedback={handleVisualFeedback}
                     onAddSaveGroup={onAddSaveGroup}
@@ -743,7 +766,7 @@ export default function PublicAlbumPage() {
                     collectionKey={collectionKey.current}
                     credentials={credentials}
                     enableComment={commentsEnabled}
-                    enableJoin={publicCollection?.publicURLs[0]?.enableJoin}
+                    enableJoin={joinEnabled}
                 />
             ) : (
                 <>
@@ -802,7 +825,7 @@ export default function PublicAlbumPage() {
                         collectionKey={collectionKey.current}
                         onJoinAlbum={handleJoinAlbum}
                         enableComment={commentsEnabled}
-                        enableJoin={publicCollection?.publicURLs[0]?.enableJoin}
+                        enableJoin={joinEnabled}
                         pendingFileIndex={pendingFileNavigation?.fileIndex}
                         pendingFileSidebar={pendingFileNavigation?.sidebar}
                         pendingHighlightCommentID={
@@ -1663,7 +1686,7 @@ const MobileMasonryCoverContent = styled(Box)({
 const MobileMasonryCoverTitle = styled(Typography)({
     fontSize: "36px",
     fontWeight: 600,
-    lineHeight: 1.1,
+    lineHeight: 1.2,
     letterSpacing: "-0.03em",
     textAlign: "center",
     width: "100%",

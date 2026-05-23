@@ -9,12 +9,19 @@ import "package:photos/utils/ml_util.dart";
 class MobileFaceNetInterpreterRunException implements Exception {}
 
 /// This class is responsible for running the face embedding model (MobileFaceNet) on ONNX runtime, and can be accessed through the singleton instance [FaceEmbeddingService.instance].
+///
+/// Model size: ~5.3 MB.
 class FaceEmbeddingService extends MlModel {
   static const kRemoteBucketModelPath = "mobilefacenet_opset15.onnx";
+  static const kModelSha256 =
+      "472a0f7e24d0b070cbbdc031b085bc2a06c70655b3bdefb87dbd69bc98662f45";
   static const String _modelName = "MobileFaceNet";
 
   @override
   String get modelRemotePath => kModelBucketEndpoint + kRemoteBucketModelPath;
+
+  @override
+  String get modelSha256 => kModelSha256;
 
   @override
   Logger get logger => _logger;
@@ -62,10 +69,12 @@ class FaceEmbeddingService extends MlModel {
   ) {
     final runOptions = OrtRunOptions();
     final int numberOfFaces = input.length ~/ (kInputSize * kInputSize * 3);
-    final inputOrt = OrtValueTensor.createTensorWithDataList(
-      input,
-      [numberOfFaces, kInputSize, kInputSize, kNumChannels],
-    );
+    final inputOrt = OrtValueTensor.createTensorWithDataList(input, [
+      numberOfFaces,
+      kInputSize,
+      kInputSize,
+      kNumChannels,
+    ]);
     final inputs = {'img_inputs': inputOrt};
     final session = OrtSession.fromAddress(sessionAddress);
     final List<OrtValue?> outputs = session.run(runOptions, inputs);
@@ -90,14 +99,12 @@ class FaceEmbeddingService extends MlModel {
     final OnnxDart plugin = OnnxDart();
     final int numberOfFaces =
         inputImageList.length ~/ (kInputSize * kInputSize * 3);
-    final result = await plugin.predict(
-      inputImageList,
-      _modelName,
-    );
+    final result = await plugin.predict(inputImageList, _modelName);
     final List<List<double>> embeddings = [];
     for (int i = 0; i < numberOfFaces; i++) {
-      embeddings
-          .add(result!.sublist(i * kEmbeddingSize, (i + 1) * kEmbeddingSize));
+      embeddings.add(
+        result!.sublist(i * kEmbeddingSize, (i + 1) * kEmbeddingSize),
+      );
     }
     for (final embedding in embeddings) {
       normalizeEmbedding(embedding);

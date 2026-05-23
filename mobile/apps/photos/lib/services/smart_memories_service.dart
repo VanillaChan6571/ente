@@ -51,16 +51,23 @@ part "smart_memories_trip_calculator_v2.dart";
 class MemoriesResult {
   final List<SmartMemory> memories;
   final List<BaseLocation> baseLocations;
+  final bool failed;
 
-  MemoriesResult(this.memories, this.baseLocations);
+  MemoriesResult(this.memories, this.baseLocations, {this.failed = false});
 
-  get isEmpty => memories.isEmpty;
+  MemoriesResult.failed()
+    : memories = const <SmartMemory>[],
+      baseLocations = const <BaseLocation>[],
+      failed = true;
+
+  bool get isEmpty => memories.isEmpty;
 }
 
 class SmartMemoriesService {
   final _logger = Logger("SmartMemoriesService");
-  MemoriesDB get _memoriesDB =>
-      isOfflineMode ? MemoriesDB.offlineInstance : MemoriesDB.instance;
+  MemoriesDB get _memoriesDB => isLocalGalleryMode
+      ? MemoriesDB.localGalleryInstance
+      : MemoriesDB.instance;
 
   static const _clipSimilarImageThreshold =
       PhotoSelector.clipSimilarImageThreshold;
@@ -83,20 +90,20 @@ class SmartMemoriesService {
   SmartMemoriesService();
 
   Future<
-      ({
-        Set<String> assignedClusterIDs,
-        Map<String, int> clusterIdToFaceCount,
-        Map<String, Iterable<String>> clusterIdToFaceIDs,
-      })> _loadUnnamedClusterData({
+    ({
+      Set<String> assignedClusterIDs,
+      Map<String, int> clusterIdToFaceCount,
+      Map<String, Iterable<String>> clusterIdToFaceIDs,
+    })
+  >
+  _loadUnnamedClusterData({
     required MLDataDB mlDataDB,
     required List<PersonEntity> allPersons,
     required bool shouldLoadUnnamedClusterData,
     required TimeLogger t,
   }) async {
     if (!shouldLoadUnnamedClusterData) {
-      _logger.info(
-        'Skipping unnamed cluster data load (fallback disabled) $t',
-      );
+      _logger.info('Skipping unnamed cluster data load (fallback disabled) $t');
       return (
         assignedClusterIDs: <String>{},
         clusterIdToFaceCount: <String, int>{},
@@ -104,8 +111,9 @@ class SmartMemoriesService {
       );
     }
 
-    final allPersonIDs =
-        allPersons.map((person) => person.remoteID).toList(growable: false);
+    final allPersonIDs = allPersons
+        .map((person) => person.remoteID)
+        .toList(growable: false);
     final assignedClusterIDs = allPersonIDs.isEmpty
         ? <String>{}
         : await mlDataDB.getPersonsClusterIDs(allPersonIDs);
@@ -140,8 +148,8 @@ class SmartMemoriesService {
       );
 
       final allFileIdsToFile = await _getFilesAndMapForMemories(
-        useLocalIntIds: isOfflineMode,
-        requireLocalId: isOfflineMode,
+        useLocalIntIds: isLocalGalleryMode,
+        requireLocalId: isLocalGalleryMode,
       );
       _logger.info("All files length: ${allFileIdsToFile.length} $t");
 
@@ -153,25 +161,28 @@ class SmartMemoriesService {
       final seenTimes = await _memoriesDB.getSeenTimes();
       _logger.info('seenTimes has ${seenTimes.length} entries $t');
 
-      final mlDataDB =
-          isOfflineMode ? MLDataDB.offlineInstance : MLDataDB.instance;
-      final allPersons = (!mlEnabled || isOfflineMode)
+      final mlDataDB = isLocalGalleryMode
+          ? MLDataDB.localGalleryInstance
+          : MLDataDB.instance;
+      final allPersons = (!mlEnabled || isLocalGalleryMode)
           ? const <PersonEntity>[]
           : await PersonService.instance.getPersons();
-      final persons =
-          allPersons.where((person) => !person.data.hideFromMemories).toList();
-      _logger.info(
-        'gotten all ${persons.length} persons after filtering $t',
-      );
+      final persons = allPersons
+          .where((person) => !person.data.hideFromMemories)
+          .toList();
+      _logger.info('gotten all ${persons.length} persons after filtering $t');
       final bool unnamedPeopleFallbackEnabled =
-          mlEnabled && localSettings.showOfflineModeOption;
-      final amountOfNonIgnoredPersons =
-          persons.where((person) => !person.data.isIgnored).length;
-      final canUseUnnamedFallback = unnamedPeopleFallbackEnabled &&
-          (isOfflineMode ||
+          mlEnabled && localSettings.showLocalGalleryModeOption;
+      final amountOfNonIgnoredPersons = persons
+          .where((person) => !person.data.isIgnored)
+          .length;
+      final canUseUnnamedFallback =
+          unnamedPeopleFallbackEnabled &&
+          (isLocalGalleryMode ||
               amountOfNonIgnoredPersons <
                   _minimumNamedPeopleBeforeDisablingUnnamedFallback);
-      final shouldLoadUnnamedClusterData = unnamedPeopleFallbackEnabled &&
+      final shouldLoadUnnamedClusterData =
+          unnamedPeopleFallbackEnabled &&
           (canUseUnnamedFallback ||
               debugSurfaceAll ||
               _debugForceUnnamedClustersOnly);
@@ -185,8 +196,9 @@ class SmartMemoriesService {
       final clusterIdToFaceCount = unnamedClusterData.clusterIdToFaceCount;
       final clusterIdToFaceIDs = unnamedClusterData.clusterIdToFaceIDs;
 
-      final currentUserEmail =
-          isOfflineMode ? null : Configuration.instance.getEmail();
+      final currentUserEmail = isLocalGalleryMode
+          ? null
+          : Configuration.instance.getEmail();
       _logger.info('currentUserEmail: $currentUserEmail $t');
 
       final cities = await locationService.getCities();
@@ -248,7 +260,7 @@ class SmartMemoriesService {
       final computationContext = MemoriesComputationContext(
         allFileIdsToFile: allFileIdsToFile,
         collectionIDsToExclude: collectionIDsToExclude,
-        isOfflineMode: isOfflineMode,
+        isLocalGalleryMode: isLocalGalleryMode,
         mlEnabled: mlEnabled,
         now: now,
         oldCache: oldCache,
@@ -267,20 +279,26 @@ class SmartMemoriesService {
         clipPeopleActivityVectors: clipPeopleActivityVectors,
         clipMemoryTypeVectors: clipMemoryTypeVectors,
       );
-      final memoriesResult = await Computer.shared().compute(
-        _allMemoriesCalculations,
-        param: computationContext.toIsolateArgs(),
-      ) as MemoriesResult;
+      final memoriesResult =
+          await Computer.shared().compute(
+                _allMemoriesCalculations,
+                param: computationContext.toIsolateArgs(),
+              )
+              as MemoriesResult;
       _logger.info(
         '${memoriesResult.memories.length} memories computed in computer $t',
       );
 
-      if (isOfflineMode && memoriesResult.isEmpty) {
+      if (isLocalGalleryMode && memoriesResult.isEmpty) {
         _logger.severe(
-          "Smart memories returned empty in offline mode, falling back to simple memories",
+          "Smart memories returned empty in local gallery mode, falling back to simple memories",
         );
         final fallbackMemories = await calcSimpleMemories();
         return MemoriesResult(fallbackMemories, <BaseLocation>[]);
+      }
+
+      if (memoriesResult.failed) {
+        return memoriesResult;
       }
 
       for (final memory in memoriesResult.memories) {
@@ -290,10 +308,10 @@ class SmartMemoriesService {
       return memoriesResult;
     } catch (e, s) {
       _logger.severe("Error calculating smart memories", e, s);
-      if (isOfflineMode) {
+      if (isLocalGalleryMode) {
         try {
           _logger.warning(
-            "Falling back to simple memories after smart memories failure in offline mode",
+            "Falling back to simple memories after smart memories failure in local gallery mode",
           );
           final fallbackMemories = await calcSimpleMemories();
           return MemoriesResult(fallbackMemories, <BaseLocation>[]);
@@ -305,75 +323,69 @@ class SmartMemoriesService {
           );
         }
       }
-      return MemoriesResult(<SmartMemory>[], <BaseLocation>[]);
+      return MemoriesResult.failed();
     }
   }
 
   static List<EmbeddingVector> _getEmbeddingsForFileIDs(
     Map<int, EmbeddingVector> fileIDToImageEmbedding,
     Set<int> fileIDs,
-  ) =>
-      PhotoSelector.getEmbeddingsForFileIDs(fileIDToImageEmbedding, fileIDs);
+  ) => PhotoSelector.getEmbeddingsForFileIDs(fileIDToImageEmbedding, fileIDs);
 
   static bool _isNearDuplicate(
     int fileID,
     Iterable<int> selectedFileIDs,
     Map<int, EmbeddingVector> fileIDToImageEmbedding, {
     double similarityThreshold = _clipSimilarImageThreshold,
-  }) =>
-      PhotoSelector.isNearDuplicate(
-        fileID,
-        selectedFileIDs,
-        fileIDToImageEmbedding,
-        similarityThreshold: similarityThreshold,
-      );
+  }) => PhotoSelector.isNearDuplicate(
+    fileID,
+    selectedFileIDs,
+    fileIDToImageEmbedding,
+    similarityThreshold: similarityThreshold,
+  );
 
   static int? _memoryFileId(
     EnteFile file, {
-    required bool isOfflineMode,
+    required bool isLocalGalleryMode,
   }) =>
-      PhotoSelector.memoryFileId(file, isOfflineMode: isOfflineMode);
+      PhotoSelector.memoryFileId(file, isLocalGalleryMode: isLocalGalleryMode);
 
   static int? _memoryFileIdFromMemory(
     Memory memory, {
-    required bool isOfflineMode,
-  }) =>
-      PhotoSelector.memoryFileIdFromMemory(
-        memory,
-        isOfflineMode: isOfflineMode,
-      );
+    required bool isLocalGalleryMode,
+  }) => PhotoSelector.memoryFileIdFromMemory(
+    memory,
+    isLocalGalleryMode: isLocalGalleryMode,
+  );
 
   static bool _isTooCloseInTime(
     int? creationTime,
     Iterable<int> selectedCreationTimes, {
     Duration minGap = _minimumMemoryTimeGap,
-  }) =>
-      PhotoSelector.isTooCloseInTime(
-        creationTime,
-        selectedCreationTimes,
-        minGap: minGap,
-      );
+  }) => PhotoSelector.isTooCloseInTime(
+    creationTime,
+    selectedCreationTimes,
+    minGap: minGap,
+  );
 
   static List<Memory> _filterNearDuplicates(
     List<Memory> memories,
     Map<int, EmbeddingVector> fileIDToImageEmbedding, {
     int? minKeep,
-    required bool isOfflineMode,
+    required bool isLocalGalleryMode,
     double similarityThreshold = _clipSimilarImageThreshold,
-  }) =>
-      PhotoSelector.filterNearDuplicates(
-        memories,
-        fileIDToImageEmbedding,
-        minKeep: minKeep,
-        isOfflineMode: isOfflineMode,
-        similarityThreshold: similarityThreshold,
-      );
+  }) => PhotoSelector.filterNearDuplicates(
+    memories,
+    fileIDToImageEmbedding,
+    minKeep: minKeep,
+    isLocalGalleryMode: isLocalGalleryMode,
+    similarityThreshold: similarityThreshold,
+  );
 
   static List<Memory> _filterByTimeSpacing(
     List<Memory> memories, {
     Duration minGap = _minimumMemoryTimeGap,
-  }) =>
-      PhotoSelector.filterByTimeSpacing(memories, minGap: minGap);
+  }) => PhotoSelector.filterByTimeSpacing(memories, minGap: minGap);
 
   static List<PeopleMemoryCandidate> _buildUnnamedClusterCandidates({
     required Map<String, int> clusterIdToFaceCount,
@@ -386,7 +398,7 @@ class SmartMemoriesService {
     required Map<int, int> seenTimes,
     required int nowInMicroseconds,
     required int windowEnd,
-    required bool isOfflineMode,
+    required bool isLocalGalleryMode,
     required PeopleSelectionBuilder selectionBuilder,
   }) {
     if (clusterIdToFaceCount.isEmpty || clusterIdToFaceIDs.isEmpty) {
@@ -395,27 +407,30 @@ class SmartMemoriesService {
     if (isMeAssigned && (meFileIDs == null || meFileIDs.isEmpty)) {
       return <PeopleMemoryCandidate>[];
     }
-    final sortedUnassignedClusters = clusterIdToFaceCount.entries
-        .where((entry) => !assignedClusterIDs.contains(entry.key))
-        .toList(growable: false)
-      ..sort((a, b) => b.value.compareTo(a.value));
+    final sortedUnassignedClusters =
+        clusterIdToFaceCount.entries
+            .where((entry) => !assignedClusterIDs.contains(entry.key))
+            .toList(growable: false)
+          ..sort((a, b) => b.value.compareTo(a.value));
     // Wrap the selection builder to move the photo with the fewest faces to
     // the front, so the cover thumbnail clearly shows who the memory is about.
     Future<List<Memory>> coverOptimizedBuilder(List<Memory> memories) async {
       final selected = await selectionBuilder(memories);
       if (selected.length <= 1) return selected;
       int bestIdx = 0;
-      int bestFaceCount = fileIdToFaces[_memoryFileIdFromMemory(
-            selected[0],
-            isOfflineMode: isOfflineMode,
-          )]
+      int bestFaceCount =
+          fileIdToFaces[_memoryFileIdFromMemory(
+                selected[0],
+                isLocalGalleryMode: isLocalGalleryMode,
+              )]
               ?.length ??
           999;
       for (int i = 1; i < selected.length; i++) {
-        final faceCount = fileIdToFaces[_memoryFileIdFromMemory(
-              selected[i],
-              isOfflineMode: isOfflineMode,
-            )]
+        final faceCount =
+            fileIdToFaces[_memoryFileIdFromMemory(
+                  selected[i],
+                  isLocalGalleryMode: isLocalGalleryMode,
+                )]
                 ?.length ??
             999;
         if (faceCount < bestFaceCount) {
@@ -468,8 +483,9 @@ class SmartMemoriesService {
       if (nonGroupFiles.length < _minimumUnnamedPeopleNonGroupPhotos) {
         continue;
       }
-      final nonConsecutiveDays =
-          _countNonConsecutiveDays(nonGroupCreationTimes);
+      final nonConsecutiveDays = _countNonConsecutiveDays(
+        nonGroupCreationTimes,
+      );
       if (nonConsecutiveDays < _minimumUnnamedPeopleNonConsecutiveDays) {
         continue;
       }
@@ -494,11 +510,12 @@ class SmartMemoriesService {
 
   static int _countNonConsecutiveDays(Iterable<int> creationTimes) {
     if (creationTimes.isEmpty) return 0;
-    final uniqueDays = creationTimes
-        .map((timestamp) => timestamp - (timestamp % microSecondsInDay))
-        .toSet()
-        .toList(growable: false)
-      ..sort();
+    final uniqueDays =
+        creationTimes
+            .map((timestamp) => timestamp - (timestamp % microSecondsInDay))
+            .toSet()
+            .toList(growable: false)
+          ..sort();
     if (uniqueDays.isEmpty) return 0;
     int count = 1;
     int previousDay = uniqueDays.first;
@@ -570,8 +587,9 @@ class SmartMemoriesService {
   }) {
     for (final shownLog in shownPeople) {
       if (shownLog.personID != personID) continue;
-      final shownDate =
-          DateTime.fromMicrosecondsSinceEpoch(shownLog.lastTimeShown);
+      final shownDate = DateTime.fromMicrosecondsSinceEpoch(
+        shownLog.lastTimeShown,
+      );
       if (currentTime.difference(shownDate) < shownPersonTimeout) {
         return true;
       }
@@ -584,16 +602,14 @@ class SmartMemoriesService {
     bool requireLocalId = false,
     bool useLocalIntIds = false,
   }) async {
-    final allFilesFromSearchService =
-        await SearchService.instance.getAllFilesForSearch();
-    final archivedOrHiddenCollectionIDs =
-        CollectionsService.instance.archivedOrHiddenCollectionIds();
+    final allFilesFromSearchService = await SearchService.instance
+        .getAllFilesForSearch();
+    final archivedOrHiddenCollectionIDs = CollectionsService.instance
+        .archivedOrHiddenCollectionIds();
     final excludedUploadFileIDs = <int>{};
     if (archivedOrHiddenCollectionIDs.isNotEmpty) {
-      final filesInArchivedCollections =
-          await FilesDB.instance.getAllFilesFromCollections(
-        archivedOrHiddenCollectionIDs,
-      );
+      final filesInArchivedCollections = await FilesDB.instance
+          .getAllFilesFromCollections(archivedOrHiddenCollectionIDs);
       for (final archivedFile in filesInArchivedCollections) {
         final archivedUploadID = archivedFile.uploadedFileID;
         if (archivedUploadID != null && archivedUploadID != -1) {
@@ -611,9 +627,9 @@ class SmartMemoriesService {
       final hasId = useLocalIntIds
           ? hasLocalId
           : useGeneratedIds
-              ? file.generatedID != null &&
-                  (file.uploadedFileID != null || hasLocalId)
-              : file.uploadedFileID != null;
+          ? file.generatedID != null &&
+                (file.uploadedFileID != null || hasLocalId)
+          : file.uploadedFileID != null;
       if (hasId && file.creationTime != null) {
         if (excludedUploadFileIDs.contains(file.uploadedFileID)) {
           continue;
@@ -642,15 +658,13 @@ class SmartMemoriesService {
     for (final file in candidateFiles) {
       final localIntId = useLocalIntIds ? localIdToIntId[file.localID] : null;
       final mappedFile = localIntId != null
-          ? file.copyWith(
-              generatedID: localIntId,
-            )
+          ? file.copyWith(generatedID: localIntId)
           : file;
       final key = useLocalIntIds
           ? localIntId
           : useGeneratedIds
-              ? mappedFile.generatedID
-              : mappedFile.uploadedFileID;
+          ? mappedFile.generatedID
+          : mappedFile.uploadedFileID;
       if (key != null) {
         allFileIdsToFile[key] = mappedFile;
       }
@@ -670,7 +684,7 @@ class SmartMemoriesService {
           computationContext.allFileIdsToFile;
       final Set<int> collectionIDsToExclude =
           computationContext.collectionIDsToExclude;
-      final bool isOfflineMode = computationContext.isOfflineMode;
+      final bool isLocalGalleryMode = computationContext.isLocalGalleryMode;
       final bool mlEnabled = computationContext.mlEnabled;
       final DateTime now = computationContext.now;
       final MemoriesCache oldCache = computationContext.oldCache;
@@ -737,7 +751,7 @@ class SmartMemoriesService {
       _markUsedMemories(
         usedMemoryFileIds,
         onThisDayMemories,
-        isOfflineMode: isOfflineMode,
+        isLocalGalleryMode: isLocalGalleryMode,
       );
       memories.addAll(onThisDayMemories);
       dev.log(
@@ -754,7 +768,7 @@ class SmartMemoriesService {
           surfaceAll: debugSurfaceAll,
           seenTimes: seenTimes,
           persons: persons,
-          isOfflineMode: isOfflineMode,
+          isLocalGalleryMode: isLocalGalleryMode,
           canUseUnnamedFallback: canUseUnnamedFallback,
           currentUserEmail: currentUserEmail,
           fileIdToFaces: fileIdToFaces,
@@ -768,7 +782,7 @@ class SmartMemoriesService {
         _markUsedMemories(
           usedMemoryFileIds,
           peopleMemories,
-          isOfflineMode: isOfflineMode,
+          isLocalGalleryMode: isLocalGalleryMode,
         );
         memories.addAll(peopleMemories);
         dev.log(
@@ -787,7 +801,7 @@ class SmartMemoriesService {
         shownTrips: oldCache.tripsShownLogs,
         surfaceAll: debugSurfaceAll,
         cachedTripMemories: oldCache.toShowMemories,
-        isOfflineMode: isOfflineMode,
+        isLocalGalleryMode: isLocalGalleryMode,
         mlEnabled: mlEnabled,
         seenTimes: seenTimes,
         fileIdToFaces: fileIdToFaces,
@@ -799,7 +813,7 @@ class SmartMemoriesService {
       _markUsedMemories(
         usedMemoryFileIds,
         tripMemories,
-        isOfflineMode: isOfflineMode,
+        isLocalGalleryMode: isLocalGalleryMode,
       );
       memories.addAll(tripMemories);
       dev.log(
@@ -814,7 +828,7 @@ class SmartMemoriesService {
           now,
           oldCache.clipShownLogs,
           surfaceAll: debugSurfaceAll,
-          isOfflineMode: isOfflineMode,
+          isLocalGalleryMode: isLocalGalleryMode,
           seenTimes: seenTimes,
           fileIDToImageEmbedding: fileIDToImageEmbedding,
           clipMemoryTypeVectors: clipMemoryTypeVectors,
@@ -822,7 +836,7 @@ class SmartMemoriesService {
         _markUsedMemories(
           usedMemoryFileIds,
           clipMemories,
-          isOfflineMode: isOfflineMode,
+          isLocalGalleryMode: isLocalGalleryMode,
         );
         memories.addAll(clipMemories);
         dev.log(
@@ -842,7 +856,7 @@ class SmartMemoriesService {
         timeFiles,
         now,
         recentSourceFiles: fullSourceFiles,
-        isOfflineMode: isOfflineMode,
+        isLocalGalleryMode: isLocalGalleryMode,
         mlEnabled: mlEnabled,
         seenTimes: seenTimes,
         fileIdToFaces: fileIdToFaces,
@@ -853,7 +867,7 @@ class SmartMemoriesService {
       _markUsedMemories(
         usedMemoryFileIds,
         timeMemories,
-        isOfflineMode: isOfflineMode,
+        isLocalGalleryMode: isLocalGalleryMode,
       );
       memories.addAll(timeMemories);
       dev.log(
@@ -866,12 +880,15 @@ class SmartMemoriesService {
         allFileIdsToFile,
         usedMemoryFileIds,
       );
-      final fillerMemories =
-          await _getFillerResults(fillerFiles, now, seenTimes: seenTimes);
+      final fillerMemories = await _getFillerResults(
+        fillerFiles,
+        now,
+        seenTimes: seenTimes,
+      );
       _markUsedMemories(
         usedMemoryFileIds,
         fillerMemories,
-        isOfflineMode: isOfflineMode,
+        isLocalGalleryMode: isLocalGalleryMode,
       );
       memories.addAll(fillerMemories);
       dev.log(
@@ -882,20 +899,20 @@ class SmartMemoriesService {
       return MemoriesResult(memories, bases);
     } catch (e, s) {
       dev.log("Error in _allMemoriesCalculations \n Error:$e \n Stacktrace:$s");
-      return MemoriesResult(<SmartMemory>[], <BaseLocation>[]);
+      return MemoriesResult.failed();
     }
   }
 
   Future<List<SmartMemory>> calcSimpleMemories() async {
     final now = DateTime.now();
     final allFileIdsToFile = await _getFilesAndMapForMemories(
-      useLocalIntIds: isOfflineMode,
-      requireLocalId: isOfflineMode,
+      useLocalIntIds: isLocalGalleryMode,
+      requireLocalId: isLocalGalleryMode,
     );
     final usedMemoryFileIds = <int>{};
     final seenTimes = await _memoriesDB.getSeenTimes();
     final collectionIDsToExclude = await getCollectionIDsToExclude();
-    final localIdToIntId = isOfflineMode
+    final localIdToIntId = isLocalGalleryMode
         ? await OfflineFilesDB.instance.ensureLocalIntIds(
             allFileIdsToFile.values
                 .map((file) => file.localID)
@@ -921,11 +938,9 @@ class SmartMemoriesService {
     if (onThisDayMemories.isNotEmpty &&
         onThisDayMemories.first.shouldShowNow()) {
       memories.add(onThisDayMemories.first);
-      _markUsedMemories(
-        usedMemoryFileIds,
-        [onThisDayMemories.first],
-        isOfflineMode: isOfflineMode,
-      );
+      _markUsedMemories(usedMemoryFileIds, [
+        onThisDayMemories.first,
+      ], isLocalGalleryMode: isLocalGalleryMode);
     }
 
     // Filler memories
@@ -976,13 +991,13 @@ class SmartMemoriesService {
   static void _markUsedMemories(
     Set<int> usedMemoryFileIds,
     Iterable<SmartMemory> memories, {
-    required bool isOfflineMode,
+    required bool isLocalGalleryMode,
   }) {
     for (final memory in memories) {
       for (final fileMemory in memory.memories) {
         final fileId = _memoryFileIdFromMemory(
           fileMemory,
-          isOfflineMode: isOfflineMode,
+          isLocalGalleryMode: isLocalGalleryMode,
         );
         if (fileId != null) {
           usedMemoryFileIds.add(fileId);
@@ -998,7 +1013,7 @@ class SmartMemoriesService {
     bool surfaceAll = false,
     required Map<int, int> seenTimes,
     required List<PersonEntity> persons,
-    required bool isOfflineMode,
+    required bool isLocalGalleryMode,
     required bool canUseUnnamedFallback,
     String? currentUserEmail,
     required Map<int, List<FaceWithoutEmbedding>> fileIdToFaces,
@@ -1016,7 +1031,7 @@ class SmartMemoriesService {
       surfaceAll: surfaceAll,
       seenTimes: seenTimes,
       persons: persons,
-      isOfflineMode: isOfflineMode,
+      isLocalGalleryMode: isLocalGalleryMode,
       canUseUnnamedFallback: canUseUnnamedFallback,
       currentUserEmail: currentUserEmail,
       fileIdToFaces: fileIdToFaces,
@@ -1034,7 +1049,7 @@ class SmartMemoriesService {
     DateTime currentTime,
     List<ClipShownLog> shownClip, {
     bool surfaceAll = false,
-    required bool isOfflineMode,
+    required bool isLocalGalleryMode,
     required Map<int, int> seenTimes,
     required Map<int, EmbeddingVector> fileIDToImageEmbedding,
     required Map<ClipMemoryType, Vector> clipMemoryTypeVectors,
@@ -1044,7 +1059,7 @@ class SmartMemoriesService {
       currentTime,
       shownClip,
       surfaceAll: surfaceAll,
-      isOfflineMode: isOfflineMode,
+      isLocalGalleryMode: isLocalGalleryMode,
       seenTimes: seenTimes,
       fileIDToImageEmbedding: fileIDToImageEmbedding,
       clipMemoryTypeVectors: clipMemoryTypeVectors,
@@ -1058,7 +1073,7 @@ class SmartMemoriesService {
     required List<TripsShownLog> shownTrips,
     bool surfaceAll = false,
     required Iterable<ToShowMemory> cachedTripMemories,
-    required bool isOfflineMode,
+    required bool isLocalGalleryMode,
     required bool mlEnabled,
     required Map<int, int> seenTimes,
     required Map<int, List<FaceWithoutEmbedding>> fileIdToFaces,
@@ -1074,7 +1089,7 @@ class SmartMemoriesService {
       shownTrips,
       surfaceAll: surfaceAll,
       cachedTripMemories: cachedTripMemories,
-      isOfflineMode: isOfflineMode,
+      isLocalGalleryMode: isLocalGalleryMode,
       mlEnabled: mlEnabled,
       seenTimes: seenTimes,
       fileIdToFaces: fileIdToFaces,
@@ -1089,7 +1104,7 @@ class SmartMemoriesService {
     Iterable<EnteFile> allFiles,
     DateTime currentTime, {
     required Iterable<EnteFile> recentSourceFiles,
-    required bool isOfflineMode,
+    required bool isLocalGalleryMode,
     required bool mlEnabled,
     required Map<int, int> seenTimes,
     required Map<int, List<FaceWithoutEmbedding>> fileIdToFaces,
@@ -1101,7 +1116,7 @@ class SmartMemoriesService {
       allFiles,
       currentTime,
       recentSourceFiles: recentSourceFiles,
-      isOfflineMode: isOfflineMode,
+      isLocalGalleryMode: isLocalGalleryMode,
       mlEnabled: mlEnabled,
       seenTimes: seenTimes,
       fileIdToFaces: fileIdToFaces,
@@ -1126,7 +1141,7 @@ class SmartMemoriesService {
   }
 
   Future<Set<int>> getCollectionIDsToExclude() async {
-    if (isOfflineMode) {
+    if (isLocalGalleryMode) {
       return <int>{};
     }
     final collections = CollectionsService.instance.getCollectionsForUI();
@@ -1206,9 +1221,7 @@ class SmartMemoriesService {
       context != null
           ? Localizations.localeOf(context).languageCode
           : languageCode ?? "en",
-    ).format(
-      DateTime.fromMicrosecondsSinceEpoch(creationTime),
-    );
+    ).format(DateTime.fromMicrosecondsSinceEpoch(creationTime));
   }
 
   static int? _seenTimeKeyForFile(
@@ -1240,19 +1253,13 @@ class SmartMemoriesService {
     if (results.length > 2 &&
         results.keys.map((city) => city.country).toSet().length == 1 &&
         !base &&
-        !_isExcludedCountryName(
-          biggestPlace.country,
-          excludedCountryNames,
-        )) {
+        !_isExcludedCountryName(biggestPlace.country, excludedCountryNames)) {
       return biggestPlace.country;
     }
     return null;
   }
 
-  static String? _tryFindCountryName(
-    List<Memory> memories,
-    List<City> cities,
-  ) {
+  static String? _tryFindCountryName(List<Memory> memories, List<City> cities) {
     final locationContext = _getLocationNameContext(memories, cities);
     return locationContext?.biggestPlace.country;
   }
@@ -1261,10 +1268,8 @@ class SmartMemoriesService {
     List<EnteFile> files,
     Map<City, List<EnteFile>> results,
     City biggestPlace,
-  })? _getLocationNameContext(
-    List<Memory> memories,
-    List<City> cities,
-  ) {
+  })?
+  _getLocationNameContext(List<Memory> memories, List<City> cities) {
     final files = Memory.filesFromMemories(memories);
     final results = getCityResults({
       "query": '',
@@ -1298,38 +1303,36 @@ class SmartMemoriesService {
   static Future<List<Memory>> _bestSelectionPeople(
     List<Memory> memories, {
     int? prefferedSize,
-    required bool isOfflineMode,
+    required bool isLocalGalleryMode,
     required Map<int, EmbeddingVector> fileIDToImageEmbedding,
     required Vector clipPositiveTextVector,
-  }) =>
-      PhotoSelector.bestSelectionPeople(
-        memories,
-        prefferedSize: prefferedSize,
-        isOfflineMode: isOfflineMode,
-        fileIDToImageEmbedding: fileIDToImageEmbedding,
-        clipPositiveTextVector: clipPositiveTextVector,
-      );
+  }) => PhotoSelector.bestSelectionPeople(
+    memories,
+    prefferedSize: prefferedSize,
+    isLocalGalleryMode: isLocalGalleryMode,
+    fileIDToImageEmbedding: fileIDToImageEmbedding,
+    clipPositiveTextVector: clipPositiveTextVector,
+  );
 
   static Future<List<Memory>> _bestSelection(
     List<Memory> memories, {
     int? prefferedSize,
     SelectionDistribution? distributionOverride,
-    required bool isOfflineMode,
+    required bool isLocalGalleryMode,
     required bool mlEnabled,
     required Map<int, List<FaceWithoutEmbedding>> fileIdToFaces,
     required Map<String, String> faceIDsToPersonID,
     required Map<int, EmbeddingVector> fileIDToImageEmbedding,
     required Vector clipPositiveTextVector,
-  }) =>
-      PhotoSelector.bestSelection(
-        memories,
-        prefferedSize: prefferedSize,
-        distributionOverride: distributionOverride,
-        isOfflineMode: isOfflineMode,
-        mlEnabled: mlEnabled,
-        fileIdToFaces: fileIdToFaces,
-        faceIDsToPersonID: faceIDsToPersonID,
-        fileIDToImageEmbedding: fileIDToImageEmbedding,
-        clipPositiveTextVector: clipPositiveTextVector,
-      );
+  }) => PhotoSelector.bestSelection(
+    memories,
+    prefferedSize: prefferedSize,
+    distributionOverride: distributionOverride,
+    isLocalGalleryMode: isLocalGalleryMode,
+    mlEnabled: mlEnabled,
+    fileIdToFaces: fileIdToFaces,
+    faceIDsToPersonID: faceIDsToPersonID,
+    fileIDToImageEmbedding: fileIDToImageEmbedding,
+    clipPositiveTextVector: clipPositiveTextVector,
+  );
 }

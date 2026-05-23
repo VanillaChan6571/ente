@@ -5,17 +5,11 @@ const int compressedThumbnailResolution = 1080;
 const int thumbnailDataLimit = 100 * 1024;
 const String sentryDSN =
     "https://ed4ddd6309b847ba8849935e26e9b648@sentry.ente.io/9";
-const String sentryTunnel = "https://sentry-reporter.ente.io";
-const String roadmapURL = "https://roadmap.ente.io";
-
-const String kAccountsUrl = "https://accounts.ente.io";
 
 final Uri githubFeatureRequestUri = Uri.https(
   "github.com",
   "/ente-io/ente/discussions/categories/enhancements",
-  {
-    "discussions_q": "is:open label:\"- auth\" sort:top",
-  },
+  {"discussions_q": "is:open label:\"- auth\" sort:top"},
 );
 const int microSecondsInDay = 86400000000;
 const int android11SDKINT = 30;
@@ -46,4 +40,4 @@ class FFDefault {
   static const bool disableCFWorker = false;
 }
 
-const kDefaultProductionEndpoint = 'https://api.ente.io';
+const kDefaultProductionEndpoint = 'https://api.ente.com';

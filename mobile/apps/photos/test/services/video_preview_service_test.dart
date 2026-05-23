@@ -1,7 +1,5 @@
-import "package:dio/dio.dart";
 import "package:flutter_cache_manager/flutter_cache_manager.dart";
 import 'package:flutter_test/flutter_test.dart';
-import "package:mockito/annotations.dart";
 import "package:photos/core/configuration.dart";
 import "package:photos/db/files_db.dart";
 import "package:photos/db/upload_locks_db.dart";
@@ -14,49 +12,19 @@ import 'package:photos/services/filedata/model/file_data.dart';
 import "package:photos/services/isolated_ffmpeg_service.dart";
 import 'package:photos/services/video_preview_service.dart';
 
-import "video_preview_service_test.mocks.dart";
-
-@GenerateMocks([
-  ServiceLocator,
-  Configuration,
-  FilesDB,
-  UploadLocksDB,
-  FileMagicService,
-  IsolatedFfmpegService,
-  Dio,
-  DefaultCacheManager,
-  CacheManager,
-])
 void main() {
   late VideoPreviewService videoPreviewService;
-  late MockServiceLocator mockServiceLocator;
-  late MockConfiguration mockConfiguration;
-  late MockFilesDB mockFilesDB;
-  late MockUploadLocksDB mockUploadLocksDB;
-  late MockFileMagicService mockFileMagicService;
-  late MockIsolatedFfmpegService mockFfmpegService;
-  late MockDefaultCacheManager mockCacheManager;
-  late MockCacheManager mockVideoCacheManager;
 
   setUp(() {
-    mockServiceLocator = MockServiceLocator();
-    mockConfiguration = MockConfiguration();
-    mockFilesDB = MockFilesDB();
-    mockUploadLocksDB = MockUploadLocksDB();
-    mockFileMagicService = MockFileMagicService();
-    mockFfmpegService = MockIsolatedFfmpegService();
-    mockCacheManager = MockDefaultCacheManager();
-    mockVideoCacheManager = MockCacheManager();
-
     videoPreviewService = VideoPreviewService(
-      mockConfiguration,
-      mockServiceLocator,
-      mockFilesDB,
-      mockUploadLocksDB,
-      mockFileMagicService,
-      mockFfmpegService,
-      mockCacheManager,
-      mockVideoCacheManager,
+      _FakeConfiguration(),
+      _FakeServiceLocator(),
+      _FakeFilesDB(),
+      _FakeUploadLocksDB(),
+      _FakeFileMagicService(),
+      _FakeIsolatedFfmpegService(),
+      _FakeDefaultCacheManager(),
+      _FakeCacheManager(),
     );
   });
 
@@ -171,8 +139,9 @@ void main() {
         EnteFile()
           ..uploadedFileID = 2
           ..fileType = FileType.video
-          ..pubMagicMetadata =
-              PubMagicMetadata(sv: 1), // Processed but with sv=1
+          ..pubMagicMetadata = PubMagicMetadata(
+            sv: 1,
+          ), // Processed but with sv=1
         EnteFile()
           ..uploadedFileID = 3
           ..fileType = FileType.video
@@ -218,8 +187,9 @@ void main() {
         EnteFile()
           ..uploadedFileID = 2
           ..fileType = FileType.video
-          ..pubMagicMetadata =
-              PubMagicMetadata(sv: 1), // Skip from total (sv=1)
+          ..pubMagicMetadata = PubMagicMetadata(
+            sv: 1,
+          ), // Skip from total (sv=1)
         EnteFile()
           ..uploadedFileID = 3
           ..fileType = FileType.video
@@ -231,8 +201,9 @@ void main() {
         EnteFile()
           ..uploadedFileID = 5
           ..fileType = FileType.video
-          ..pubMagicMetadata =
-              PubMagicMetadata(sv: 1), // Skip from total (sv=1)
+          ..pubMagicMetadata = PubMagicMetadata(
+            sv: 1,
+          ), // Skip from total (sv=1)
       ];
 
       final previewIds = <int, PreviewInfo>{
@@ -325,10 +296,7 @@ void main() {
 
       // Assert
       // All files have sv=1, so total set is empty, netProcessedItems should be 1.0
-      expect(
-        status,
-        equals(1.0),
-      ); // Empty total = 100% complete
+      expect(status, equals(1.0)); // Empty total = 100% complete
     });
 
     test('should handle percentage calculation precision', () async {
@@ -354,3 +322,20 @@ void main() {
     });
   });
 }
+
+class _FakeServiceLocator extends Fake implements ServiceLocator {}
+
+class _FakeConfiguration extends Fake implements Configuration {}
+
+class _FakeFilesDB extends Fake implements FilesDB {}
+
+class _FakeUploadLocksDB extends Fake implements UploadLocksDB {}
+
+class _FakeFileMagicService extends Fake implements FileMagicService {}
+
+class _FakeIsolatedFfmpegService extends Fake
+    implements IsolatedFfmpegService {}
+
+class _FakeDefaultCacheManager extends Fake implements DefaultCacheManager {}
+
+class _FakeCacheManager extends Fake implements CacheManager {}

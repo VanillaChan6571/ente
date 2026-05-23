@@ -11,10 +11,7 @@ import 'package:photos/services/account/user_service.dart';
 class UserDetailsStateWidget extends StatefulWidget {
   final Widget child;
 
-  const UserDetailsStateWidget({
-    required this.child,
-    super.key,
-  });
+  const UserDetailsStateWidget({required this.child, super.key});
 
   @override
   State<UserDetailsStateWidget> createState() => UserDetailsStateWidgetState();
@@ -24,20 +21,22 @@ class UserDetailsStateWidgetState extends State<UserDetailsStateWidget> {
   late UserDetails? _userDetails;
   late StreamSubscription<OpenedSettingsEvent> _openedSettingsEventSubscription;
   late StreamSubscription<UserDetailsChangedEvent>
-      _userDetailsChangedSubscription;
+  _userDetailsChangedSubscription;
   bool _isCached = true;
 
   @override
   void initState() {
     _userDetails = UserService.instance.getCachedUserDetails();
-    _openedSettingsEventSubscription =
-        Bus.instance.on<OpenedSettingsEvent>().listen((event) {
-      _fetchUserDetails();
-    });
-    _userDetailsChangedSubscription =
-        Bus.instance.on<UserDetailsChangedEvent>().listen((event) {
-      _refreshFromCache();
-    });
+    _openedSettingsEventSubscription = Bus.instance
+        .on<OpenedSettingsEvent>()
+        .listen((event) {
+          _fetchUserDetails();
+        });
+    _userDetailsChangedSubscription = Bus.instance
+        .on<UserDetailsChangedEvent>()
+        .listen((event) {
+          _refreshFromCache();
+        });
     super.initState();
   }
 
@@ -50,14 +49,14 @@ class UserDetailsStateWidgetState extends State<UserDetailsStateWidget> {
 
   @override
   Widget build(BuildContext context) => InheritedUserDetails(
-        userDetailsState: this,
-        userDetails: _userDetails,
-        isCached: _isCached,
-        child: widget.child,
-      );
+    userDetailsState: this,
+    userDetails: _userDetails,
+    isCached: _isCached,
+    child: widget.child,
+  );
 
   void _fetchUserDetails() async {
-    if (isOfflineMode) return;
+    if (isLocalGalleryMode) return;
     _userDetails = await UserService.instance.getUserDetailsV2(
       memoryCount: true,
       shouldCache: true,

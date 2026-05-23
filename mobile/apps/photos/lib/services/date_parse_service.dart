@@ -39,10 +39,12 @@ class DateParseService {
 
   static final _ordinalRegex = RegExp(r'\b(\d{1,2})(st|nd|rd|th)\b');
   static final _normalizeRegex = RegExp(r'\bof\b|[,\.]+|\s+');
-  static final _isoFormatRegex =
-      RegExp(r'^(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})$');
-  static final _standardFormatRegex =
-      RegExp(r'^(\d{1,2})[\/-](\d{1,2})[\/-](\d{2,4})$');
+  static final _isoFormatRegex = RegExp(
+    r'^(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})$',
+  );
+  static final _standardFormatRegex = RegExp(
+    r'^(\d{1,2})[\/-](\d{1,2})[\/-](\d{2,4})$',
+  );
   static final _dotFormatRegex = RegExp(r'^(\d{1,2})\.(\d{1,2})\.(\d{2,4})$');
   static final _compactFormatRegex = RegExp(r'^(\d{8})$');
   static final _shortFormatRegex = RegExp(r'^(\d{1,2})[\/-](\d{1,2})$');
@@ -355,12 +357,16 @@ class DateParseService {
         final n1 = numbers[0];
         final n2 = numbers[1];
 
-        if (n1 >= 1 && n1 <= 31 && n2 >= _MIN_YEAR && n2 <= _MAX_YEAR) {
-          day = n1;
-          year = n2;
-        } else if (n2 >= 1 && n2 <= 31 && n1 >= _MIN_YEAR && n1 <= _MAX_YEAR) {
-          day = n2;
+        if (n1 >= _MIN_YEAR && n1 <= _MAX_YEAR) {
           year = n1;
+          if (n2 >= 1 && n2 <= 31) {
+            day = n2;
+          }
+        } else if (n2 >= _MIN_YEAR && n2 <= _MAX_YEAR) {
+          year = n2;
+          if (n1 >= 1 && n1 <= 31) {
+            day = n1;
+          }
         }
       } else if (numbers.length == 1) {
         final n = numbers.first;

@@ -26,6 +26,7 @@ import "package:photos/ui/components/banners/save_faces_banner.dart";
 import "package:photos/ui/components/bottom_action_bar/people_bottom_action_bar_widget.dart";
 import "package:photos/ui/components/buttons/icon_button_widget.dart";
 import "package:photos/ui/components/searchable_appbar.dart";
+import "package:photos/ui/viewer/actions/select_all_status_icon.dart";
 import "package:photos/ui/viewer/file/no_thumbnail_widget.dart";
 import "package:photos/ui/viewer/file/thumbnail_widget.dart";
 import "package:photos/ui/viewer/people/face_thumbnail_squircle.dart";
@@ -38,10 +39,7 @@ import "package:photos/utils/local_settings.dart";
 import "package:photos/utils/people_sort_util.dart";
 
 class PeopleSectionAllPage extends StatefulWidget {
-  const PeopleSectionAllPage({
-    super.key,
-    this.startInSearchMode = false,
-  });
+  const PeopleSectionAllPage({super.key, this.startInSearchMode = false});
 
   final bool startInSearchMode;
 
@@ -123,7 +121,7 @@ class SelectablePersonSearchExample extends StatelessWidget {
   });
 
   void _handleTap(BuildContext context) {
-    if (isOfflineMode) {
+    if (isLocalGalleryMode) {
       _handleNavigation(context);
       return;
     }
@@ -135,7 +133,7 @@ class SelectablePersonSearchExample extends StatelessWidget {
   }
 
   void _handleLongPress() {
-    if (isOfflineMode) {
+    if (isLocalGalleryMode) {
       return;
     }
     _toggleSelection();
@@ -145,8 +143,9 @@ class SelectablePersonSearchExample extends StatelessWidget {
     final personId = searchResult.params[kPersonParamID] as String?;
     final clusterId = searchResult.params[kClusterParamId] as String?;
 
-    final idToUse =
-        (personId != null && personId.isNotEmpty) ? personId : clusterId;
+    final idToUse = (personId != null && personId.isNotEmpty)
+        ? personId
+        : clusterId;
 
     if (idToUse != null && idToUse.isNotEmpty) {
       selectedPeople.toggleSelection(idToUse);
@@ -158,16 +157,14 @@ class SelectablePersonSearchExample extends StatelessWidget {
     if (searchResult.onResultTap != null) {
       searchResult.onResultTap!(context);
     } else {
-      routeToPage(
-        context,
-        SearchResultPage(searchResult),
-      );
+      routeToPage(context, SearchResultPage(searchResult));
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final bool isCluster = searchResult.type() == ResultType.faces &&
+    final bool isCluster =
+        searchResult.type() == ResultType.faces &&
         searchResult.params.containsKey(kClusterParamId);
     final bool isPinnedPerson =
         !isCluster && (searchResult.params[kPersonPinned] as bool? ?? false);
@@ -177,8 +174,9 @@ class SelectablePersonSearchExample extends StatelessWidget {
       builder: (context, _) {
         final personId = searchResult.params[kPersonParamID] as String?;
         final clusterId = searchResult.params[kClusterParamId] as String?;
-        final idToCheck =
-            (personId != null && personId.isNotEmpty) ? personId : clusterId;
+        final idToCheck = (personId != null && personId.isNotEmpty)
+            ? personId
+            : clusterId;
         final bool isSelected = idToCheck != null
             ? selectedPeople.isPersonSelected(idToCheck)
             : false;
@@ -220,9 +218,7 @@ class SelectablePersonSearchExample extends StatelessWidget {
                                 isDefaultFace: isDefaultFace,
                               );
                       } else {
-                        child = const NoThumbnailWidget(
-                          addBorder: false,
-                        );
+                        child = const NoThumbnailWidget(addBorder: false);
                       }
                       return SizedBox(
                         width: size - 2,
@@ -252,10 +248,11 @@ class SelectablePersonSearchExample extends StatelessWidget {
                       switchInCurve: Curves.easeOut,
                       switchOutCurve: Curves.easeIn,
                       child: isSelected
-                          ? const Icon(
-                              Icons.check_circle_rounded,
-                              color: Colors.white,
-                              size: 22,
+                          ? const SelectAllStatusIcon(
+                              isSelected: true,
+                              size: 18,
+                              selectedFillColor: Colors.white,
+                              selectedTickCutsOut: true,
                             )
                           : null,
                     ),
@@ -345,8 +342,9 @@ class _PeopleSectionAllWidgetState extends State<PeopleSectionAllWidget> {
   bool userDismissedPersonGallerySuggestion = false;
   String _searchQuery = "";
   int _suggestionReloadToken = 0;
-  final Debouncer _peopleReloadDebouncer =
-      Debouncer(const Duration(milliseconds: 400));
+  final Debouncer _peopleReloadDebouncer = Debouncer(
+    const Duration(milliseconds: 400),
+  );
   late PeopleSortKey _sortKey;
   bool _nameSortAscending = true;
   bool _updatedSortAscending = false;
@@ -363,9 +361,7 @@ class _PeopleSectionAllWidgetState extends State<PeopleSectionAllWidget> {
       !_showingIgnoredPeople &&
       extraFaces.isNotEmpty;
 
-  List<GenericSearchResult> _filterFaces(
-    List<GenericSearchResult> faces,
-  ) {
+  List<GenericSearchResult> _filterFaces(List<GenericSearchResult> faces) {
     if (!_isSearching) {
       return faces;
     }
@@ -493,22 +489,25 @@ class _PeopleSectionAllWidgetState extends State<PeopleSectionAllWidget> {
       _prioritizeNamedIgnoredPeople(normalFaces);
     }
     final showAllFaces = _showingAllFaces || _showingIgnoredPeople;
-    final results =
-        showAllFaces ? [...normalFaces, ...extraFaces] : normalFaces;
+    final results = showAllFaces
+        ? [...normalFaces, ...extraFaces]
+        : normalFaces;
 
     if (widget.namedOnly) {
-      results.removeWhere(
-        (element) => element.params[kPersonParamID] == null,
-      );
+      results.removeWhere((element) => element.params[kPersonParamID] == null);
 
       if (init) {
         // sort widget.selectedPeople first
         results.sort((a, b) {
-          final aIndex = widget.selectedPeople?.personIds
-                  .contains(a.params[kPersonParamID]) ??
+          final aIndex =
+              widget.selectedPeople?.personIds.contains(
+                a.params[kPersonParamID],
+              ) ??
               false;
-          final bIndex = widget.selectedPeople?.personIds
-                  .contains(b.params[kPersonParamID]) ??
+          final bIndex =
+              widget.selectedPeople?.personIds.contains(
+                b.params[kPersonParamID],
+              ) ??
               false;
           if (aIndex && !bIndex) return -1;
           if (!aIndex && bIndex) return 1;
@@ -634,8 +633,12 @@ class _PeopleSectionAllWidgetState extends State<PeopleSectionAllWidget> {
               onSearch: _updateSearchQuery,
               onSearchClosed: _clearSearchQuery,
               centerTitle: false,
-              searchIconPadding:
-                  const EdgeInsets.fromLTRB(12, 12, horizontalEdgePadding, 12),
+              searchIconPadding: const EdgeInsets.fromLTRB(
+                12,
+                12,
+                horizontalEdgePadding,
+                12,
+              ),
               actions: [
                 Padding(
                   padding: const EdgeInsets.only(right: horizontalEdgePadding),
@@ -666,7 +669,7 @@ class _PeopleSectionAllWidgetState extends State<PeopleSectionAllWidget> {
           final hasResults = _isSearching
               ? filteredNormalFaces.isNotEmpty || filteredExtraFaces.isNotEmpty
               : filteredNormalFaces.isNotEmpty ||
-                  (!widget.namedOnly && filteredExtraFaces.isNotEmpty);
+                    (!widget.namedOnly && filteredExtraFaces.isNotEmpty);
           if (_isLoaded && !hasResults) {
             slivers.add(
               SliverFillRemaining(
@@ -682,7 +685,8 @@ class _PeopleSectionAllWidgetState extends State<PeopleSectionAllWidget> {
           final screenWidth = MediaQuery.of(context).size.width;
           final crossAxisCount = (screenWidth / 100).floor();
 
-          final itemSize = (screenWidth -
+          final itemSize =
+              (screenWidth -
                   ((horizontalEdgePadding * 2) +
                       ((crossAxisCount - 1) * gridPadding))) /
               crossAxisCount;
@@ -730,48 +734,79 @@ class _PeopleSectionAllWidgetState extends State<PeopleSectionAllWidget> {
                 ),
               ),
             );
-            slivers.add(
-              const SliverToBoxAdapter(
-                child: SizedBox(height: 16),
-              ),
-            );
+            slivers.add(const SliverToBoxAdapter(child: SizedBox(height: 16)));
           } else {
             final showAllFaces = _showingAllFaces || _showingIgnoredPeople;
             final showExtraFaces =
                 showAllFaces && filteredExtraFaces.isNotEmpty;
-            slivers.addAll(
-              [
-                if (isOfflineMode &&
-                    !Configuration.instance.hasConfiguredAccount())
-                  const SliverToBoxAdapter(
-                    child: SaveFacesBanner(),
-                  ),
-                (!userDismissedPersonGallerySuggestion &&
-                        !widget.namedOnly &&
-                        !_showingIgnoredPeople)
-                    ? SliverToBoxAdapter(
-                        child: Dismissible(
-                          key: const Key("personGallerySuggestionAll"),
-                          direction: DismissDirection.horizontal,
-                          onDismissed: (direction) {
+            slivers.addAll([
+              if (isLocalGalleryMode &&
+                  !Configuration.instance.hasConfiguredAccount())
+                const SliverToBoxAdapter(child: SaveFacesBanner()),
+              (!userDismissedPersonGallerySuggestion &&
+                      !widget.namedOnly &&
+                      !_showingIgnoredPeople)
+                  ? SliverToBoxAdapter(
+                      child: Dismissible(
+                        key: const Key("personGallerySuggestionAll"),
+                        direction: DismissDirection.horizontal,
+                        onDismissed: (direction) {
+                          setState(() {
+                            userDismissedPersonGallerySuggestion = true;
+                          });
+                        },
+                        child: PersonGallerySuggestion(
+                          key: ValueKey(
+                            'personGallerySuggestionAll_$_suggestionReloadToken',
+                          ),
+                          person: null,
+                          onClose: () {
                             setState(() {
                               userDismissedPersonGallerySuggestion = true;
                             });
                           },
-                          child: PersonGallerySuggestion(
-                            key: ValueKey(
-                              'personGallerySuggestionAll_$_suggestionReloadToken',
-                            ),
-                            person: null,
-                            onClose: () {
-                              setState(() {
-                                userDismissedPersonGallerySuggestion = true;
-                              });
-                            },
-                          ),
                         ),
-                      )
-                    : const SliverToBoxAdapter(child: SizedBox.shrink()),
+                      ),
+                    )
+                  : const SliverToBoxAdapter(child: SizedBox.shrink()),
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(
+                  horizontalEdgePadding,
+                  16,
+                  horizontalEdgePadding,
+                  16,
+                ),
+                sliver: SliverGrid(
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    mainAxisSpacing: gridPadding,
+                    crossAxisSpacing: gridPadding,
+                    crossAxisCount: crossAxisCount,
+                    childAspectRatio:
+                        itemSize / (itemSize + (24 * textScaleFactor)),
+                  ),
+                  delegate: SliverChildBuilderDelegate(
+                    childCount: filteredNormalFaces.length,
+                    (context, index) {
+                      return !widget.namedOnly
+                          ? SelectablePersonSearchExample(
+                              searchResult: filteredNormalFaces[index],
+                              size: itemSize,
+                              selectedPeople: widget.selectedPeople!,
+                              isDefaultFace: true,
+                            )
+                          : PersonSearchExample(
+                              searchResult: filteredNormalFaces[index],
+                              size: itemSize,
+                              selectedPeople: widget.selectedPeople!,
+                            );
+                    },
+                  ),
+                ),
+              ),
+              if (_showMoreLessOption)
+                SliverToBoxAdapter(child: _buildShowMoreOrLessButton(context)),
+              const SliverToBoxAdapter(child: SizedBox(height: 16)),
+              if (showExtraFaces)
                 SliverPadding(
                   padding: const EdgeInsets.fromLTRB(
                     horizontalEdgePadding,
@@ -788,17 +823,17 @@ class _PeopleSectionAllWidgetState extends State<PeopleSectionAllWidget> {
                           itemSize / (itemSize + (24 * textScaleFactor)),
                     ),
                     delegate: SliverChildBuilderDelegate(
-                      childCount: filteredNormalFaces.length,
+                      childCount: filteredExtraFaces.length,
                       (context, index) {
                         return !widget.namedOnly
                             ? SelectablePersonSearchExample(
-                                searchResult: filteredNormalFaces[index],
+                                searchResult: filteredExtraFaces[index],
                                 size: itemSize,
                                 selectedPeople: widget.selectedPeople!,
-                                isDefaultFace: true,
+                                isDefaultFace: false,
                               )
                             : PersonSearchExample(
-                                searchResult: filteredNormalFaces[index],
+                                searchResult: filteredExtraFaces[index],
                                 size: itemSize,
                                 selectedPeople: widget.selectedPeople!,
                               );
@@ -806,54 +841,9 @@ class _PeopleSectionAllWidgetState extends State<PeopleSectionAllWidget> {
                     ),
                   ),
                 ),
-                if (_showMoreLessOption)
-                  SliverToBoxAdapter(
-                    child: _buildShowMoreOrLessButton(context),
-                  ),
-                const SliverToBoxAdapter(
-                  child: SizedBox(height: 16),
-                ),
-                if (showExtraFaces)
-                  SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(
-                      horizontalEdgePadding,
-                      16,
-                      horizontalEdgePadding,
-                      16,
-                    ),
-                    sliver: SliverGrid(
-                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                        mainAxisSpacing: gridPadding,
-                        crossAxisSpacing: gridPadding,
-                        crossAxisCount: crossAxisCount,
-                        childAspectRatio:
-                            itemSize / (itemSize + (24 * textScaleFactor)),
-                      ),
-                      delegate: SliverChildBuilderDelegate(
-                        childCount: filteredExtraFaces.length,
-                        (context, index) {
-                          return !widget.namedOnly
-                              ? SelectablePersonSearchExample(
-                                  searchResult: filteredExtraFaces[index],
-                                  size: itemSize,
-                                  selectedPeople: widget.selectedPeople!,
-                                  isDefaultFace: false,
-                                )
-                              : PersonSearchExample(
-                                  searchResult: filteredExtraFaces[index],
-                                  size: itemSize,
-                                  selectedPeople: widget.selectedPeople!,
-                                );
-                        },
-                      ),
-                    ),
-                  ),
-                if (showExtraFaces)
-                  const SliverToBoxAdapter(
-                    child: SizedBox(height: 16),
-                  ),
-              ],
-            );
+              if (showExtraFaces)
+                const SliverToBoxAdapter(child: SizedBox(height: 16)),
+            ]);
           }
           return CustomScrollView(slivers: slivers);
         }
@@ -880,10 +870,7 @@ class _PeopleSectionAllWidgetState extends State<PeopleSectionAllWidget> {
             context: context,
             elevation: 0,
             shape: RoundedRectangleBorder(
-              side: BorderSide(
-                width: 0.5,
-                color: colorScheme.strokeFaint,
-              ),
+              side: BorderSide(width: 0.5, color: colorScheme.strokeFaint),
               borderRadius: BorderRadius.circular(_sortMenuCornerRadius),
             ),
             position: RelativeRect.fromLTRB(
@@ -970,8 +957,9 @@ class _PeopleSectionAllWidgetState extends State<PeopleSectionAllWidget> {
         detail = _isSortAscending(key) ? l10n.sortAToZ : l10n.sortZToA;
         break;
       case PeopleSortKey.lastUpdated:
-        detail =
-            _isSortAscending(key) ? l10n.sortOldestFirst : l10n.sortNewestFirst;
+        detail = _isSortAscending(key)
+            ? l10n.sortOldestFirst
+            : l10n.sortNewestFirst;
         break;
     }
 
@@ -1002,10 +990,7 @@ class _PeopleSectionAllWidgetState extends State<PeopleSectionAllWidget> {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.start,
           children: [
-            Text(
-              label,
-              style: textTheme.mini,
-            ),
+            Text(label, style: textTheme.mini),
             if (isSelected) ...[
               const SizedBox(width: 8),
               Container(
@@ -1017,16 +1002,9 @@ class _PeopleSectionAllWidgetState extends State<PeopleSectionAllWidget> {
                 ),
               ),
               const SizedBox(width: 6),
-              Text(
-                detail,
-                style: textTheme.miniMuted,
-              ),
+              Text(detail, style: textTheme.miniMuted),
               const SizedBox(width: 4),
-              Icon(
-                directionIcon,
-                size: 16,
-                color: colorScheme.textMuted,
-              ),
+              Icon(directionIcon, size: 16, color: colorScheme.textMuted),
             ],
           ],
         ),
@@ -1051,19 +1029,13 @@ class _PeopleSectionAllWidgetState extends State<PeopleSectionAllWidget> {
         padding: const EdgeInsets.symmetric(horizontal: 16),
         decoration: BoxDecoration(
           border: Border(
-            top: BorderSide(
-              width: 0.5,
-              color: colorScheme.strokeFaint,
-            ),
+            top: BorderSide(width: 0.5, color: colorScheme.strokeFaint),
           ),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
-              l10n.showIgnored,
-              style: textTheme.miniMuted,
-            ),
+            Text(l10n.showIgnored, style: textTheme.miniMuted),
             IgnorePointer(
               child: CupertinoSwitch(
                 value: _showingIgnoredPeople,
@@ -1099,10 +1071,9 @@ class _PeopleSectionAllWidgetState extends State<PeopleSectionAllWidget> {
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(8),
               side: BorderSide(
-                color: Theme.of(context)
-                    .colorScheme
-                    .outline
-                    .withValues(alpha: 0.3),
+                color: Theme.of(
+                  context,
+                ).colorScheme.outline.withValues(alpha: 0.3),
                 width: 1,
               ),
             ),
@@ -1114,9 +1085,9 @@ class _PeopleSectionAllWidgetState extends State<PeopleSectionAllWidget> {
                 _showingAllFaces
                     ? AppLocalizations.of(context).showLessFaces
                     : AppLocalizations.of(context).showMoreFaces,
-                style: getEnteTextTheme(context).small.copyWith(
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
+                style: getEnteTextTheme(
+                  context,
+                ).small.copyWith(color: Theme.of(context).colorScheme.primary),
               ),
               const SizedBox(width: 8),
               Icon(

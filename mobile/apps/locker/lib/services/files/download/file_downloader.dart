@@ -29,13 +29,13 @@ Future<File> ensureEncryptedOfflineCopy(
   ProgressCallback? progressCallback,
 }) async {
   final existingFile = await getCurrentOfflineEncryptedCopy(file);
+  final String logPrefix = 'File-${file.uploadedFileID}:';
   if (existingFile != null) {
     final existingSize = await existingFile.length();
     progressCallback?.call(existingSize, existingSize);
     return existingFile;
   }
 
-  final String logPrefix = 'File-${file.uploadedFileID}:';
   final String tempDir = Configuration.instance.getTempDirectory();
   final String tempEncryptedFilePath =
       "$tempDir${file.uploadedFileID}.encrypted";
@@ -65,13 +65,13 @@ Future<File> ensureEncryptedOfflineCopy(
       late final Response response;
       try {
         response = await Network.instance.getDio().download(
-              file.downloadUrl,
-              tempEncryptedFilePath,
-              options: Options(
-                headers: {"X-Auth-Token": Configuration.instance.getToken()},
-              ),
-              onReceiveProgress: progressCallback,
-            );
+          file.downloadUrl,
+          tempEncryptedFilePath,
+          options: Options(
+            headers: {"X-Auth-Token": Configuration.instance.getToken()},
+          ),
+          onReceiveProgress: progressCallback,
+        );
       } catch (e) {
         try {
           if (await encryptedFile.exists()) {
@@ -96,14 +96,9 @@ Future<File> ensureEncryptedOfflineCopy(
 
     await encryptedFile.copy(finalEncryptedFilePath);
     await encryptedFile.delete();
-    _logger.info('$logPrefix persisted encrypted offline copy');
     return finalEncryptedFile;
   } catch (e, s) {
-    _logger.severe(
-      '$logPrefix failed to ensure encrypted offline copy',
-      e,
-      s,
-    );
+    _logger.severe('$logPrefix failed to ensure encrypted offline copy', e, s);
     try {
       if (await encryptedFile.exists() &&
           encryptedFile.path != finalEncryptedFilePath) {
@@ -167,8 +162,9 @@ Future<File?> openFile(
 
       final double elapsedSeconds =
           (DateTime.now().millisecondsSinceEpoch - startTime) / 1000;
-      final double speedInKBps =
-          elapsedSeconds <= 0 ? 0 : sizeInBytes / 1024.0 / elapsedSeconds;
+      final double speedInKBps = elapsedSeconds <= 0
+          ? 0
+          : sizeInBytes / 1024.0 / elapsedSeconds;
       _logger.info(
         '$logPrefix local decrypt completed: ${formatBytes(sizeInBytes)}, avg speed: ${speedInKBps.toStringAsFixed(2)} KB/s',
       );
@@ -228,7 +224,6 @@ Future<File?> downloadAndDecrypt(
     if (shouldUseCache && await decryptedFile.exists()) {
       final decryptedSize = await decryptedFile.length();
       if (decryptedSize > 0) {
-        _logger.info('$logPrefix using cached decrypted file');
         progressCallback?.call(decryptedSize, decryptedSize);
         return decryptedFile;
       } else {
@@ -246,7 +241,6 @@ Future<File?> downloadAndDecrypt(
           usingCachedEncryptedFile = true;
           encryptedFilePath = cachedEncryptedFilePath;
           encryptedFile = cachedEncryptedFile;
-          _logger.info('$logPrefix using cached encrypted file');
         } else {
           await cachedEncryptedFile.delete();
         }
@@ -320,11 +314,14 @@ Future<File?> downloadAndDecrypt(
         fileKey,
       );
       fakeProgress?.stop();
-      _logger
-          .info('$logPrefix decryption completed (ID ${file.uploadedFileID})');
     } catch (e, s) {
       fakeProgress?.stop();
       _logger.severe("Critical: $logPrefix failed to decrypt", e, s);
+      try {
+        if (await decryptedFile.exists()) {
+          await decryptedFile.delete();
+        }
+      } catch (_) {}
       if (downloadedFreshEncryptedFile) {
         try {
           await encryptedFile.delete();

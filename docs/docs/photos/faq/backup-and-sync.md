@@ -119,9 +119,7 @@ If you want to delete a photo from Ente, you must do it manually within the Ente
 
 **What you need to know:**
 
-✅ **Uploading**: Happens automatically for selected albums
-✅ **Re-upload protection**: Ente won't re-upload photos you've already uploaded, even if you delete them from Ente and they're still on your device
-❌ **Two-way sync**: Not supported - changes in Ente don't reflect on your device
+✅ **Uploading**: Happens automatically for selected albums ✅ **Re-upload protection**: Ente won't re-upload photos you've already uploaded, even if you delete them from Ente and they're still on your device ❌ **Two-way sync**: Not supported - changes in Ente don't reflect on your device
 
 **If you want to delete a photo everywhere:**
 
@@ -236,6 +234,44 @@ Live Photos behave differently depending on how you share them:
 - **Using "Download"**: Downloads the complete Live Photo (image + video)
 - **Using "Share" button to save/download**: Only saves the still image
 
+### How do I restore Live Photos from Ente? {#restore-live-photos}
+
+If you backed up your Live Photos to Ente and deleted them from your iPhone and iCloud, you can restore them as proper Live Photos (not as two separate files) using either of the methods below.
+
+**Method 1: Save directly from the Ente iOS app**
+
+This is the simplest path and works entirely on your iPhone.
+
+1. Open the Ente app on your iPhone.
+2. Navigate to the Live Photo you want to restore.
+3. Tap the download icon.
+
+Ente will save the photo and its paired video back to your Camera Roll as a proper Live Photo. You will see the Live Photo badge when you view it in the Photos app.
+
+Repeat for each Live Photo, or select multiple photos and use the bulk save option.
+
+**Method 2: Desktop export, then re-import into Mac Photos**
+
+Use this method if you want to restore a large library, or if you prefer working from a Mac.
+
+**Step 1 — Export from Ente**
+
+1. Sign in to the Ente desktop app.
+2. Open the sidebar and choose **Export data**.
+3. Pick a destination folder and click **Start**.
+
+When the export finishes, each Live Photo appears as two files in the export folder — an image file (`.heic` or `.jpg`) and a paired video (`.mov`) — both sharing the same base filename (e.g. `IMG_1234.heic` and `IMG_1234.mov`).
+
+**Step 2 — Import into Mac Photos**
+
+1. Open the Photos app on your Mac.
+2. Choose **File > Import**.
+3. Select the folder you exported from Ente and click **Review for Import**.
+4. Photos on Mac will automatically recognise the paired image and video files as Live Photos and import them as such.
+5. Click **Import All New Items**.
+
+If you have iCloud Photos enabled, the restored Live Photos will sync to your iPhone automatically. You can also connect your iPhone via USB and use Finder to transfer them directly.
+
 ### Does Ente backup Burst photos? {#burst-photos-backup}
 
 Ente backs up a single primary full-resolution image from the Burst. Additional frames from the Burst sequence are not backed up unless each frame is selected and uploaded.
@@ -243,6 +279,49 @@ Ente backs up a single primary full-resolution image from the Burst. Additional 
 ### Why do I see duplicate files in the iOS app when the same photo is in an iCloud Shared Album? {#icloud-shared-album-duplicates}
 
 iCloud Shared Albums store compressed copies, not the original files. Because of this, Ente sees the shared-album copy as a different file, so it gets backed up separately and appears as a duplicate.
+
+### Why is my Recents count lower in Ente than in the iOS Photos app? {#ios-recents-count-mismatch}
+
+Ente reads photos through Apple's photo library APIs, which don't always return every item shown in the Photos app. In particular, some burst frames and certain shared or synced assets are excluded from third-party app queries by iOS itself. This can make Ente's Recents count in the on-device section slightly lower than iOS's.
+
+### Why aren't photos from my Samsung "Gallery" folder backing up? {#samsung-gallery-folder}
+
+Ente backs up the folders you select under `Settings > Backup > Backed up folders`. On Samsung devices, photos restored by Samsung Cloud often land in a folder called **Gallery**, which is separate from the standard **Camera** folder.
+
+If Ente isn't picking these up:
+
+1. Open `Settings > Backup > Backed up folders` and check whether the Gallery folder is listed and selected.
+2. If it isn't listed, move or copy the photos into the Camera folder, which Ente recognizes by default.
+3. New photos taken with the camera will continue to back up normally.
+
+### Can I pick photos from Ente in other apps? {#pick-photos-in-other-apps}
+
+On supported Android apps, yes. If an app (such as WhatsApp) opens the system photo picker, you can choose Ente Photos as the source and select photos or videos from your Ente library.
+
+A few details to keep in mind:
+
+- This works through Android's picker integration, so it depends on the third-party app using the standard picker flow.
+- Ente returns the files you select to that app for sending or attaching.
+- The picker shows the photos and videos available in your Ente gallery on that device.
+- On iPhone, iOS does not currently let Ente plug into other apps' photo pickers in the same way.
+
+### Can Ente replace my default Photos or Camera gallery? {#ente-as-default-gallery}
+
+Not as a full system gallery. On iPhone, tapping a photo from the camera or another app will still open Apple Photos because iOS does not allow third-party apps to replace that role.
+
+On supported Android devices, some camera apps can hand off the last photo you tapped to Ente for preview. But Ente still does not become the phone's universal default gallery for every app and camera flow.
+
+Ente runs alongside your native gallery and backs up new photos automatically in the background. See [How does background sync work?](#how-background-sync-works).
+
+### Can I open photos from my camera app in Ente? {#open-camera-photos-in-ente}
+
+On supported Android devices, yes. After taking a photo, tapping the preview thumbnail in the camera app can open that image directly in Ente Photos instead of the phone's default gallery.
+
+A few details to keep in mind:
+
+- This depends on your camera app and device supporting the Android handoff that Ente listens for.
+- It is for previewing the image you just tapped from the camera app; it does not make Ente the default gallery everywhere else.
+- On iPhone, the camera app still opens Apple Photos for this flow.
 
 ### On my iPhone, why are my photos not seen in the same albums as selected for backup? {#ios-album-assignment}
 
@@ -524,8 +603,7 @@ Yes! On desktop, you have two options:
 
 ### Can I pause and resume backups? {#pause-resume-backup}
 
-**On mobile:**
-You can effectively pause backups by:
+**On mobile:** You can effectively pause backups by:
 
 - Turning off WiFi/mobile data
 - Going to `Settings > Backup` and toggling off specific albums
@@ -567,13 +645,39 @@ This usually occurs due to a network connectivity issue:
 
 - Check your internet connection is active
 - Try switching networks (WiFi to mobile data or vice versa)
-- If network connection is fine and sync is still not occurring, please send us
-  your debug logs via **Settings > Help > View logs** so we can investigate
-  further. You can reach us at [support@ente.com](mailto:support@ente.com).
+- If network connection is fine and sync is still not occurring, please send us your debug logs via **Settings > Help > View logs** so we can investigate further. You can reach us at [support@ente.com](mailto:support@ente.com).
 
 ### Is there a way to filter photos that are backed up to Ente but no longer on my device? {#filter-cloud-only-photos}
 
 No. There is currently no way to filter cloud-only photos (photos that exist in Ente but are no longer on your device).
+
+### Can I view my photos in Ente without internet? {#offline-viewing}
+
+Yes, if the original photo is still available locally on your device or has already been cached by Ente.
+
+Photos that exist only in the cloud need an internet connection to load in full quality.
+
+## Exporting Your Data
+
+### How do I import an Ente export back into Ente? {#import-ente-export}
+
+Open the desktop app and upload the exported folder. You can also set up a Watch Folder from `Settings > Watch folders` if you want Ente to automatically upload files from a specific folder.
+
+There is no separate "Import from Ente" option.
+
+Learn more in the [Watch folders guide](/photos/features/backup-and-sync/watch-folders).
+
+### What happens to deleted photos in continuous export? {#continuous-export-deleted-photos}
+
+If you delete a photo from Ente, it moves to Trash in Ente. In your continuous export folder, the exported copy is similarly moved into a local export Trash folder.
+
+If you later permanently delete or empty Trash in Ente, Ente will not automatically delete the copy from your local export Trash folder. Manually delete those files from your device if you no longer need them.
+
+### Why is the Trash folder in my local export larger than my Ente Trash? {#local-export-trash-larger}
+
+Ente does not automatically remove files from your local filesystem export. This is intentional, so the export process does not unexpectedly delete local files from your device.
+
+If you are sure you no longer need those files, manually delete them from the local exported Trash folder.
 
 ## File Support & Upload Limits
 

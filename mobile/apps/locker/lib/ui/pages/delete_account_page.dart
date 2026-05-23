@@ -16,10 +16,7 @@ import "package:locker/ui/components/gradient_button.dart";
 class DeleteAccountPage extends StatelessWidget {
   final BaseConfiguration config;
 
-  const DeleteAccountPage(
-    this.config, {
-    super.key,
-  });
+  const DeleteAccountPage(this.config, {super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -45,10 +42,7 @@ class DeleteAccountPage extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                l10n.deleteAccount,
-                style: textTheme.h3Bold,
-              ),
+              Text(l10n.deleteAccount, style: textTheme.h3Bold),
               const SizedBox(height: 24),
               Center(
                 child: Image.asset(
@@ -63,22 +57,20 @@ class DeleteAccountPage extends StatelessWidget {
                   children: [
                     TextSpan(
                       text: l10n
-                          .deleteAccountFeedbackPrompt("feedback@ente.io")
-                          .split("feedback@ente.io")[0],
+                          .deleteAccountFeedbackPrompt("feedback@ente.com")
+                          .split("feedback@ente.com")[0],
                     ),
                     TextSpan(
-                      text: "feedback@ente.io",
+                      text: "feedback@ente.com",
                       style: TextStyle(color: colorScheme.primary700),
                     ),
                     TextSpan(
                       text: l10n
-                          .deleteAccountFeedbackPrompt("feedback@ente.io")
-                          .split("feedback@ente.io")[1],
+                          .deleteAccountFeedbackPrompt("feedback@ente.com")
+                          .split("feedback@ente.com")[1],
                     ),
                   ],
-                  style: textTheme.body.copyWith(
-                    color: colorScheme.textMuted,
-                  ),
+                  style: textTheme.body.copyWith(color: colorScheme.textMuted),
                 ),
               ),
               const SizedBox(height: 16),
@@ -87,7 +79,7 @@ class DeleteAccountPage extends StatelessWidget {
                 onTap: () async {
                   await sendEmail(
                     context,
-                    to: "feedback@ente.io",
+                    to: "feedback@ente.com",
                     subject: "[Feedback]",
                   );
                 },
@@ -95,9 +87,7 @@ class DeleteAccountPage extends StatelessWidget {
               const SizedBox(height: 24),
               Text(
                 l10n.deleteAccountPermanentWarning,
-                style: textTheme.body.copyWith(
-                  color: colorScheme.textMuted,
-                ),
+                style: textTheme.body.copyWith(color: colorScheme.textMuted),
               ),
               const SizedBox(height: 16),
               GradientButton(
@@ -113,8 +103,8 @@ class DeleteAccountPage extends StatelessWidget {
   }
 
   Future<void> _initiateDelete(BuildContext context) async {
-    final deleteChallengeResponse =
-        await UserService.instance.getDeleteChallenge(context);
+    final deleteChallengeResponse = await UserService.instance
+        .getDeleteChallenge(context);
     if (deleteChallengeResponse == null) {
       return;
     }
@@ -129,11 +119,11 @@ class DeleteAccountPage extends StatelessWidget {
     BuildContext context,
     DeleteChallengeResponse response,
   ) async {
-    final hasAuthenticated =
-        await LocalAuthenticationService.instance.requestLocalAuthentication(
-      context,
-      context.strings.initiateAccountDeleteTitle,
-    );
+    final hasAuthenticated = await LocalAuthenticationService.instance
+        .requestLocalAuthentication(
+          context,
+          context.strings.initiateAccountDeleteTitle,
+        );
 
     if (hasAuthenticated) {
       final confirmed = await _showDeleteConfirmationSheet(context);
@@ -142,9 +132,7 @@ class DeleteAccountPage extends StatelessWidget {
       }
       final decryptChallenge = CryptoUtil.openSealSync(
         CryptoUtil.base642bin(response.encryptedChallenge),
-        CryptoUtil.base642bin(
-          config.getKeyAttributes()!.publicKey,
-        ),
+        CryptoUtil.base642bin(config.getKeyAttributes()!.publicKey),
         config.getSecretKey()!,
       );
       final challengeResponseStr = utf8.decode(decryptChallenge);
@@ -182,7 +170,7 @@ class DeleteAccountPage extends StatelessWidget {
       context,
       title: context.strings.deleteAccount,
       message:
-          "Please send an email to account-deletion@ente.io from your registered email address.\n\nYour request will be processed within 72 hours.",
+          "Please send an email to account-deletion@ente.com from your registered email address.\n\nYour request will be processed within 72 hours.",
       assetPath: "assets/file_delete_icon.png",
       buttons: [
         GradientButton(
@@ -192,7 +180,7 @@ class DeleteAccountPage extends StatelessWidget {
             Navigator.of(context).pop();
             await sendEmail(
               context,
-              to: "account-deletion@ente.io",
+              to: "account-deletion@ente.com",
               subject: "[Delete account]",
             );
           },

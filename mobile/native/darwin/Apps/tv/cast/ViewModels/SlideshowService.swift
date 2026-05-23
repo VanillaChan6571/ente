@@ -8,7 +8,6 @@
 import SwiftUI
 import AVKit
 import Foundation
-import EnteCrypto
 import ZIPFoundation
 
 #if canImport(UIKit)
@@ -71,8 +70,8 @@ class RealSlideshowService: ObservableObject {
     // Simplified mode: only load first file (no slideshow navigation)
     private var didDisplayFirstFile: Bool = false
     
-    private let baseURL = "https://api.ente.io"
-    private let castDownloadURL = "https://cast-albums.ente.io/download"
+    private let baseURL = "https://api.ente.com"
+    private let castDownloadURL = "https://cast-albums.ente.com/download"
     
     // Configuration Flags
     private let verboseFileLogging = false          // Reduces per-file spam unless true
@@ -1011,7 +1010,7 @@ class RealSlideshowService: ObservableObject {
     
     private func downloadImage(castPayload: CastPayload, fileID: Int) async throws -> Data {
         // Use preview endpoint for thumbnails suitable for TV display
-        let url = URL(string: "https://cast-albums.ente.io/preview/?fileID=\(fileID)")!
+        let url = URL(string: "https://cast-albums.ente.com/preview/?fileID=\(fileID)")!
         
         var request = URLRequest(url: url)
         request.setValue(castPayload.castToken, forHTTPHeaderField: "X-Cast-Access-Token")
@@ -1167,13 +1166,11 @@ class RealSlideshowService: ObservableObject {
             throw CastError.decryptionError("Invalid base64 in file key decryption")
         }
         
-    
-        // Use EnteCrypto for file key decryption (XSalsa20-Poly1305)
         do {
-            let decryptedFileKey = try EnteCrypto.secretBoxOpen(encryptedKeyData, nonce: nonceData, key: collectionKeyData)
+            let decryptedFileKey = try Crypto.secretBoxOpen(cipherText: encryptedKeyData, nonce: nonceData, key: collectionKeyData)
             return decryptedFileKey
         } catch {
-            throw CastError.decryptionError("EnteCrypto SecretBox decryption failed for file key: \(error)")
+            throw CastError.decryptionError("SecretBox decryption failed for file key: \(error)")
         }
     }
     
@@ -1186,14 +1183,12 @@ class RealSlideshowService: ObservableObject {
         
         print("    🔍 XChaCha20: encrypted=\(encryptedBytes.count)b, header=\(headerBytes.count)b, key=\(fileKey.count)b")
         
-        // Use EnteCrypto for XChaCha20-Poly1305 streaming decryption
-        // This matches the mobile app's CryptoUtil.decryptChaCha implementation
         do {
-            let decryptedData = try EnteCrypto.decryptSecretStream(encryptedData: encryptedBytes, key: fileKey, header: headerBytes)
-            print("    ✅ Metadata decrypted using EnteCrypto: \(decryptedData.count) bytes")
+            let decryptedData = try Crypto.decryptSecretStream(encryptedData: encryptedBytes, key: fileKey, header: headerBytes)
+            print("    ✅ Metadata decrypted using Rust crypto: \(decryptedData.count) bytes")
             return decryptedData
         } catch {
-            throw CastError.decryptionError("EnteCrypto XChaCha20-Poly1305 decryption failed for metadata: \(error)")
+            throw CastError.decryptionError("XChaCha20-Poly1305 decryption failed for metadata: \(error)")
         }
     }
     
@@ -1205,11 +1200,10 @@ class RealSlideshowService: ObservableObject {
         
     if verboseDecryptionLogging { print("    🔍 File decryption: encrypted=\(encryptedData.count)b, header=\(headerBytes.count)b, key=\(fileKey.count)b") }
         
-        // Use EnteCrypto for XChaCha20-Poly1305 streaming decryption
         do {
-            return try EnteCrypto.decryptSecretStream(encryptedData: encryptedData, key: fileKey, header: headerBytes)
+            return try Crypto.decryptSecretStream(encryptedData: encryptedData, key: fileKey, header: headerBytes)
         } catch {
-            throw CastError.decryptionError("EnteCrypto file content decryption failed: \(error)")
+            throw CastError.decryptionError("file content decryption failed: \(error)")
         }
     }
     
@@ -1409,4 +1403,3 @@ func extractLivePhotoComponents(from zipData: Data) throws -> LivePhotoComponent
         throw CastError.decryptionError("Failed to extract live photo zip: \(error)")
     }
 }
-

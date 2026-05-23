@@ -4,7 +4,7 @@ import "package:ente_pure_utils/ente_pure_utils.dart";
 import "package:flutter/foundation.dart";
 import "package:flutter/material.dart";
 import "package:logging/logging.dart";
-import "package:mobile_ocr/mobile_ocr.dart";
+import "package:mobile_ocr/mobile_ocr.dart" show MobileOcr;
 import "package:photos/models/file/file.dart";
 import "package:photos/models/file/file_type.dart";
 import "package:photos/models/file/trash_file.dart";
@@ -242,9 +242,9 @@ class _TextDetectionOverlayButtonState
                     const SizedBox(width: 8),
                     Text(
                       "Select text",
-                      style: getEnteTextTheme(context).mini.copyWith(
-                            color: Colors.white,
-                          ),
+                      style: getEnteTextTheme(
+                        context,
+                      ).mini.copyWith(color: Colors.white),
                     ),
                   ],
                 ),
@@ -267,10 +267,7 @@ class _TextDetectionOverlayButtonState
       }
       await routeToPage(
         context,
-        TextDetectionPage(
-          file: widget.file,
-          imagePath: path,
-        ),
+        TextDetectionPage(file: widget.file, imagePath: path),
       );
     } catch (error, stackTrace) {
       _logger.severe("Failed to start text detection", error, stackTrace);

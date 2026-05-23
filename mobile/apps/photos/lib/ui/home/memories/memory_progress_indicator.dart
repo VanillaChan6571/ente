@@ -1,5 +1,7 @@
 import "package:flutter/material.dart";
 
+const int kMemoryProgressTickCutoff = 60;
+
 class MemoryProgressIndicator extends StatefulWidget {
   final int totalSteps;
   final int currentIndex;
@@ -9,6 +11,7 @@ class MemoryProgressIndicator extends StatefulWidget {
   final double height;
   final double gap;
   final void Function(AnimationController)? animationController;
+  final void Function(AnimationController)? onAnimationControllerDisposed;
   final VoidCallback? onComplete;
 
   const MemoryProgressIndicator({
@@ -21,6 +24,7 @@ class MemoryProgressIndicator extends StatefulWidget {
     this.height = 2.0,
     this.gap = 4.0,
     this.animationController,
+    this.onAnimationControllerDisposed,
     this.onComplete,
   });
 
@@ -43,8 +47,10 @@ class _MemoryProgressIndicatorState extends State<MemoryProgressIndicator>
       animationBehavior: AnimationBehavior.preserve,
     );
 
-    _animation =
-        Tween<double>(begin: 0.0, end: 1.0).animate(_animationController);
+    _animation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(_animationController);
 
     if (widget.animationController != null) {
       widget.animationController!(_animationController);
@@ -59,12 +65,32 @@ class _MemoryProgressIndicatorState extends State<MemoryProgressIndicator>
 
   @override
   void dispose() {
+    widget.onAnimationControllerDisposed?.call(_animationController);
     _animationController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    // For very large memories, a per-file tick bar would render as pixel-thin
+    // slivers. Show a single continuous bar instead, combining completed-file
+    // progress with the current file's in-flight animation.
+    if (widget.totalSteps >= kMemoryProgressTickCutoff) {
+      return AnimatedBuilder(
+        animation: _animation,
+        builder: (context, _) {
+          final progress =
+              (widget.currentIndex + _animation.value) / widget.totalSteps;
+          return LinearProgressIndicator(
+            value: progress.clamp(0.0, 1.0),
+            backgroundColor: widget.unselectedColor,
+            valueColor: AlwaysStoppedAnimation<Color>(widget.selectedColor),
+            minHeight: widget.height,
+            borderRadius: BorderRadius.circular(12),
+          );
+        },
+      );
+    }
     return Row(
       children: List.generate(widget.totalSteps, (index) {
         return Expanded(
@@ -79,27 +105,27 @@ class _MemoryProgressIndicatorState extends State<MemoryProgressIndicator>
                     ),
                   )
                 : index == widget.currentIndex
-                    ? AnimatedBuilder(
-                        animation: _animation,
-                        builder: (context, child) {
-                          return LinearProgressIndicator(
-                            value: _animation.value,
-                            backgroundColor: widget.unselectedColor,
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                              widget.selectedColor,
-                            ),
-                            minHeight: widget.height,
-                            borderRadius: BorderRadius.circular(12),
-                          );
-                        },
-                      )
-                    : Container(
-                        height: widget.height,
-                        decoration: BoxDecoration(
-                          color: widget.unselectedColor,
-                          borderRadius: BorderRadius.circular(12),
+                ? AnimatedBuilder(
+                    animation: _animation,
+                    builder: (context, child) {
+                      return LinearProgressIndicator(
+                        value: _animation.value,
+                        backgroundColor: widget.unselectedColor,
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          widget.selectedColor,
                         ),
-                      ),
+                        minHeight: widget.height,
+                        borderRadius: BorderRadius.circular(12),
+                      );
+                    },
+                  )
+                : Container(
+                    height: widget.height,
+                    decoration: BoxDecoration(
+                      color: widget.unselectedColor,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
           ),
         );
       }),

@@ -8,10 +8,7 @@ import "package:pro_image_editor/pro_image_editor.dart";
 class ContactPhotoAdjustPage extends StatefulWidget {
   final Uint8List imageBytes;
 
-  const ContactPhotoAdjustPage({
-    required this.imageBytes,
-    super.key,
-  });
+  const ContactPhotoAdjustPage({required this.imageBytes, super.key});
 
   @override
   State<ContactPhotoAdjustPage> createState() => _ContactPhotoAdjustPageState();
@@ -27,18 +24,18 @@ class _ContactPhotoAdjustPageState extends State<ContactPhotoAdjustPage> {
     final isLightMode = Theme.of(context).brightness == Brightness.light;
 
     return Scaffold(
-      backgroundColor: colorScheme.backgroundBase,
+      backgroundColor: colorScheme.backgroundColour,
       body: CropRotateEditor.memory(
         widget.imageBytes,
         initConfigs: CropRotateEditorInitConfigs(
           theme: ThemeData(
-            scaffoldBackgroundColor: colorScheme.backgroundBase,
+            scaffoldBackgroundColor: colorScheme.backgroundColour,
             appBarTheme: AppBarTheme(
               titleTextStyle: textTheme.body,
-              backgroundColor: colorScheme.backgroundBase,
+              backgroundColor: colorScheme.backgroundColour,
             ),
-            bottomAppBarTheme: BottomAppBarTheme(
-              color: colorScheme.backgroundBase,
+            bottomAppBarTheme: BottomAppBarThemeData(
+              color: colorScheme.backgroundColour,
             ),
             brightness: isLightMode ? Brightness.light : Brightness.dark,
           ),
@@ -62,13 +59,12 @@ class _ContactPhotoAdjustPageState extends State<ContactPhotoAdjustPage> {
               showAspectRatioButton: false,
               showResetButton: false,
               initAspectRatio: 1.0,
-              aspectRatios: const [
-                AspectRatioItem(text: "1*1", value: 1.0),
-              ],
+              aspectRatios: const [AspectRatioItem(text: "1*1", value: 1.0)],
               style: CropRotateEditorStyle(
-                background: colorScheme.backgroundBase,
-                cropCornerColor:
-                    Theme.of(context).colorScheme.imageEditorPrimaryColor,
+                background: colorScheme.backgroundColour,
+                cropCornerColor: Theme.of(
+                  context,
+                ).colorScheme.imageEditorPrimaryColor,
               ),
               widgets: CropRotateEditorWidgets(
                 appBar: (editor, rebuildStream) => ReactiveAppbar(
@@ -76,7 +72,7 @@ class _ContactPhotoAdjustPageState extends State<ContactPhotoAdjustPage> {
                   builder: (_) => AppBar(
                     elevation: 0,
                     automaticallyImplyLeading: false,
-                    backgroundColor: colorScheme.backgroundBase,
+                    backgroundColor: colorScheme.backgroundColour,
                     titleSpacing: 0,
                     title: Row(
                       children: [
@@ -102,9 +98,9 @@ class _ContactPhotoAdjustPageState extends State<ContactPhotoAdjustPage> {
                             style: textTheme.body.copyWith(
                               color: _isReturningBytes
                                   ? colorScheme.textMuted
-                                  : Theme.of(context)
-                                      .colorScheme
-                                      .imageEditorPrimaryColor,
+                                  : Theme.of(
+                                      context,
+                                    ).colorScheme.imageEditorPrimaryColor,
                             ),
                           ),
                         ),

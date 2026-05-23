@@ -6,9 +6,9 @@ on:
             - "mobile/native/android/apps/ensu/**"
             - "mobile/native/android/packages/rust/**"
             - "rust/apps/codegen/**"
-            - "rust/core/**"
-            - "rust/ensu/**"
-            - "rust/uniffi/**"
+            - "rust/crates/core/**"
+            - "rust/crates/ensu/**"
+            - "rust/bindings/uniffi/**"
             - "rust/.cargo/config.toml"
             - "rust/Cargo.toml"
             - "rust/Cargo.lock"
@@ -29,9 +29,8 @@ jobs:
             - name: Checkout code
               uses: actions/checkout@v6
 
-            - name: Generate UniFFI Kotlin bindings
+            - run: cargo codegen native
               working-directory: rust
-              run: cargo codegen ensu-android
 
             - name: Build Ensu
               working-directory: mobile/native/android/apps/ensu

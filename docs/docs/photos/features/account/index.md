@@ -162,12 +162,6 @@ Ente accepts multiple payment methods:
 - Annual plans only
 - Email [paypal@ente.com](mailto:paypal@ente.com) to request an invoice
 
-**Cryptocurrency**:
-
-- Bitcoin (BTC), Ethereum (ETH), Dogecoin (DOGE)
-- Email [crypto@ente.com](mailto:crypto@ente.com) to request an invoice
-- Cannot be combined with discount codes
-
 **App Store payments**:
 
 - iOS App Store
@@ -184,7 +178,7 @@ Learn more in the [Storage and Plans FAQ](/photos/faq/storage-and-plans#supporte
 Use the same account across all your devices:
 
 - Install Ente on multiple phones, tablets, and computers
-- Use the web app at [web.ente.io](https://web.ente.io)
+- Use the web app at [photos.ente.com](https://photos.ente.com)
 - All devices stay in sync automatically
 - Configure backup separately on each device
 

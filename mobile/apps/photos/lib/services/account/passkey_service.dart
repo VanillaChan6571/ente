@@ -1,6 +1,5 @@
 import "package:flutter/cupertino.dart";
 import "package:logging/logging.dart";
-import "package:photos/core/constants.dart";
 import "package:photos/gateways/users/passkey_gateway.dart";
 import "package:photos/service_locator.dart";
 import "package:photos/utils/dialog_util.dart";
@@ -14,7 +13,7 @@ class PasskeyService {
 
   Future<String> getAccountsUrl() async {
     final response = await _gateway.getAccountsToken();
-    final accountsUrl = response["accountsUrl"] ?? kAccountsUrl;
+    final accountsUrl = response["accountsUrl"] as String;
     final jwtToken = response["accountsToken"] as String;
     return "$accountsUrl/passkeys?token=$jwtToken";
   }
@@ -38,10 +37,7 @@ class PasskeyService {
   Future<void> openPasskeyPage(BuildContext context) async {
     try {
       final url = await getAccountsUrl();
-      await launchUrlString(
-        url,
-        mode: LaunchMode.externalApplication,
-      );
+      await launchUrlString(url, mode: LaunchMode.externalApplication);
     } catch (e) {
       Logger('PasskeyService').severe("failed to open passkey page", e);
       showGenericErrorDialog(context: context, error: e).ignore();

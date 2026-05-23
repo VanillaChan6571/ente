@@ -6,16 +6,28 @@ import "package:photos/services/machine_learning/ml_model.dart";
 import 'package:photos/services/machine_learning/semantic_search/clip/clip_text_tokenizer.dart';
 import "package:photos/utils/ml_util.dart";
 
+/// MobileCLIP S2 text encoder (quantized) used for semantic search text embeddings.
+///
+/// Model size: ~67.1 MB. Vocab file size: ~3.2 MB.
 class ClipTextEncoder extends MlModel {
   static const kRemoteBucketModelPath =
       "mobileclip_s2_text_opset18_quant.onnx"; // Quantized model
+  static const kModelSha256 =
+      "d92f33dfcff83077fc2e0d3414250710efbb51795dfd89767bdbefb5fdc47322";
   static const _kVocabRemotePath = "bpe_simple_vocab_16e6.txt";
+  static const kVocabSha256 =
+      "67603cfda2e032ad77b5f8808af37789d590db664b26df8705d2bf8b3c553fc8";
 
   static const _modelName = "ClipTextEncoder";
 
   @override
   String get modelRemotePath => kModelBucketEndpoint + kRemoteBucketModelPath;
+
+  @override
+  String get modelSha256 => kModelSha256;
+
   String get vocabRemotePath => kModelBucketEndpoint + _kVocabRemotePath;
+  String get vocabSha256 => kVocabSha256;
 
   @override
   Logger get logger => _logger;
@@ -61,10 +73,7 @@ class ClipTextEncoder extends MlModel {
     }
   }
 
-  static List<double> _runFFIBasedPredict(
-    Int32List int32list,
-    int address,
-  ) {
+  static List<double> _runFFIBasedPredict(Int32List int32list, int address) {
     final runOptions = OrtRunOptions();
     final data = List.filled(1, int32list);
     final inputOrt = OrtValueTensor.createTensorWithDataList(data, [1, 77]);
@@ -85,10 +94,7 @@ class ClipTextEncoder extends MlModel {
     Int32List int32list,
   ) async {
     final OnnxDart plugin = OnnxDart();
-    final result = await plugin.predictInt(
-      int32list,
-      _modelName,
-    );
+    final result = await plugin.predictInt(int32list, _modelName);
     final List<double> embedding = result!.sublist(0, 512);
     normalizeEmbedding(embedding);
     return embedding;

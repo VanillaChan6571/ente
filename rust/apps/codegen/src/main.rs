@@ -6,6 +6,9 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use camino::Utf8PathBuf;
+use lib_flutter_rust_bridge_codegen::codegen::{
+    self as frb_codegen, Config as FrbConfig, MetaConfig as FrbMetaConfig,
+};
 use uniffi_bindgen::bindings::{self, GenerateOptions, TargetLanguage};
 
 type DynError = Box<dyn Error>;
@@ -31,13 +34,18 @@ fn main() {
 fn run() -> Result<(), DynError> {
     let mut args = env::args().skip(1);
     match (args.next().as_deref(), args.next()) {
-        (Some("ensu-ios"), None) => generate_ensu_ios(),
-        (Some("ensu-android"), None) => generate_ensu_android(),
-        _ => Err("usage: cargo codegen <ensu-ios|ensu-android>".into()),
+        (Some("native"), None) => generate_native(),
+        (Some("frb"), None) => generate_frb(),
+        _ => Err("usage: cargo codegen <native|frb>".into()),
     }
 }
 
-fn generate_ensu_ios() -> Result<(), DynError> {
+fn generate_native() -> Result<(), DynError> {
+    generate_native_ios()?;
+    generate_native_android()
+}
+
+fn generate_native_ios() -> Result<(), DynError> {
     let rust_root = rust_root()?;
     let repo_root = rust_root
         .parent()
@@ -49,25 +57,32 @@ fn generate_ensu_ios() -> Result<(), DynError> {
     let crates = [
         UniffiCrate {
             crate_name: "core",
-            crate_dir: rust_root.join("uniffi/core"),
+            crate_dir: rust_root.join("bindings/uniffi/core"),
         },
         UniffiCrate {
             crate_name: "db",
-            crate_dir: rust_root.join("uniffi/ensu/db"),
+            crate_dir: rust_root.join("bindings/uniffi/ensu/db"),
         },
         UniffiCrate {
             crate_name: "sync",
-            crate_dir: rust_root.join("uniffi/ensu/sync"),
+            crate_dir: rust_root.join("bindings/uniffi/ensu/sync"),
         },
         UniffiCrate {
             crate_name: "inference",
-            crate_dir: rust_root.join("uniffi/ensu/inference"),
+            crate_dir: rust_root.join("bindings/uniffi/ensu/inference"),
+        },
+        UniffiCrate {
+            crate_name: "transcription",
+            crate_dir: rust_root.join("bindings/uniffi/ensu/transcription"),
         },
     ];
 
     for uniffi_crate in crates {
         build_host_library(&uniffi_crate.crate_dir)?;
-        remove_paths(&swift_generated_paths(&generated_dir, uniffi_crate.crate_name))?;
+        remove_paths(&swift_generated_paths(
+            &generated_dir,
+            uniffi_crate.crate_name,
+        ))?;
         generate_bindings(TargetLanguage::Swift, &generated_dir, &uniffi_crate)?;
     }
 
@@ -77,7 +92,7 @@ fn generate_ensu_ios() -> Result<(), DynError> {
     Ok(())
 }
 
-fn generate_ensu_android() -> Result<(), DynError> {
+fn generate_native_android() -> Result<(), DynError> {
     let rust_root = rust_root()?;
     let repo_root = rust_root
         .parent()
@@ -93,7 +108,7 @@ fn generate_ensu_android() -> Result<(), DynError> {
         AndroidCrate {
             uniffi: UniffiCrate {
                 crate_name: "core",
-                crate_dir: rust_root.join("uniffi/core"),
+                crate_dir: rust_root.join("bindings/uniffi/core"),
             },
             out_dir: core_out_dir.clone(),
             stale_path: core_out_dir.join("io/ente/ensu/crypto/core.kt"),
@@ -101,7 +116,7 @@ fn generate_ensu_android() -> Result<(), DynError> {
         AndroidCrate {
             uniffi: UniffiCrate {
                 crate_name: "db",
-                crate_dir: rust_root.join("uniffi/ensu/db"),
+                crate_dir: rust_root.join("bindings/uniffi/ensu/db"),
             },
             out_dir: rust_out_dir.clone(),
             stale_path: rust_out_dir.join("io/ente/labs/ensu_db/db.kt"),
@@ -109,7 +124,7 @@ fn generate_ensu_android() -> Result<(), DynError> {
         AndroidCrate {
             uniffi: UniffiCrate {
                 crate_name: "sync",
-                crate_dir: rust_root.join("uniffi/ensu/sync"),
+                crate_dir: rust_root.join("bindings/uniffi/ensu/sync"),
             },
             out_dir: rust_out_dir.clone(),
             stale_path: rust_out_dir.join("io/ente/labs/ensu_sync/sync.kt"),
@@ -117,20 +132,92 @@ fn generate_ensu_android() -> Result<(), DynError> {
         AndroidCrate {
             uniffi: UniffiCrate {
                 crate_name: "inference",
-                crate_dir: rust_root.join("uniffi/ensu/inference"),
+                crate_dir: rust_root.join("bindings/uniffi/ensu/inference"),
             },
             out_dir: rust_out_dir.clone(),
             stale_path: rust_out_dir.join("io/ente/labs/inference_rs/inference.kt"),
+        },
+        AndroidCrate {
+            uniffi: UniffiCrate {
+                crate_name: "transcription",
+                crate_dir: rust_root.join("bindings/uniffi/ensu/transcription"),
+            },
+            out_dir: rust_out_dir.clone(),
+            stale_path: rust_out_dir.join("io/ente/labs/ensu_transcription/transcription.kt"),
         },
     ];
 
     for crate_spec in crates {
         build_host_library(&crate_spec.uniffi.crate_dir)?;
         remove_path(&crate_spec.stale_path)?;
-        generate_bindings(TargetLanguage::Kotlin, &crate_spec.out_dir, &crate_spec.uniffi)?;
+        generate_bindings(
+            TargetLanguage::Kotlin,
+            &crate_spec.out_dir,
+            &crate_spec.uniffi,
+        )?;
     }
 
     Ok(())
+}
+
+fn generate_frb() -> Result<(), DynError> {
+    let rust_root = rust_root()?;
+    let repo_root = rust_root
+        .parent()
+        .ok_or("failed to resolve repo root from rust/apps/codegen")?;
+
+    generate_frb_package(&repo_root.join("mobile/packages/rust"))?;
+    generate_frb_package(&repo_root.join("mobile/apps/photos"))?;
+    format_frb_bindings()
+}
+
+fn generate_frb_package(package_dir: &Path) -> Result<(), DynError> {
+    let previous_dir = env::current_dir().map_err(|error| {
+        format!("failed to capture current directory before generating FRB bindings: {error}")
+    })?;
+
+    env::set_current_dir(package_dir).map_err(|error| {
+        format!(
+            "failed to enter {} before generating FRB bindings: {error}",
+            package_dir.display()
+        )
+    })?;
+
+    let result = FrbConfig::from_files_auto().and_then(|config| {
+        let config = FrbConfig::merge(
+            FrbConfig {
+                dart_fix: Some(false),
+                ..Default::default()
+            },
+            config,
+        );
+        frb_codegen::generate(config, FrbMetaConfig { watch: false })
+    });
+
+    env::set_current_dir(&previous_dir).map_err(|error| {
+        format!(
+            "failed to restore current directory to {}: {error}",
+            previous_dir.display()
+        )
+    })?;
+
+    result?;
+
+    Ok(())
+}
+
+fn format_frb_bindings() -> Result<(), DynError> {
+    let rust_root = rust_root()?;
+    run_command(
+        Command::new("cargo")
+            .arg("fmt")
+            .arg("-p")
+            .arg("ente_rust")
+            .arg("-p")
+            .arg("ente_photos_rust")
+            .current_dir(rust_root),
+        "failed to format generated FRB Rust bindings".to_owned(),
+    )
 }
 
 fn rust_root() -> Result<PathBuf, DynError> {
@@ -142,12 +229,19 @@ fn rust_root() -> Result<PathBuf, DynError> {
         .ok_or_else(|| "failed to resolve rust workspace root".into())
 }
 
+fn target_dir() -> Result<PathBuf, DynError> {
+    Ok(rust_root()?.join("target"))
+}
+
 fn build_host_library(crate_dir: &Path) -> Result<(), DynError> {
+    let target_dir = target_dir()?;
     run_command(
         Command::new("cargo")
             .arg("build")
             .arg("--locked")
             .arg("--release")
+            .arg("--target-dir")
+            .arg(target_dir)
             .current_dir(crate_dir),
         format!("failed to build {}", crate_dir.display()),
     )
@@ -186,15 +280,12 @@ fn generate_bindings(
     out_dir: &Path,
     uniffi_crate: &UniffiCrate<'_>,
 ) -> Result<(), DynError> {
-    let source = uniffi_crate
-        .crate_dir
-        .join("target/release")
-        .join(format!(
-            "{}{}{}",
-            env::consts::DLL_PREFIX,
-            uniffi_crate.crate_name,
-            env::consts::DLL_SUFFIX
-        ));
+    let source = target_dir()?.join("release").join(format!(
+        "{}{}{}",
+        env::consts::DLL_PREFIX,
+        uniffi_crate.crate_name,
+        env::consts::DLL_SUFFIX
+    ));
     let source = utf8_path(&source)?;
     let out_dir = utf8_path(out_dir)?;
     let previous_dir = env::current_dir().map_err(|error| {

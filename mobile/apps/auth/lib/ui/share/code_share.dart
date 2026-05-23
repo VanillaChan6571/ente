@@ -118,7 +118,7 @@ class _ShareCodeDialogState extends State<ShareCodeDialog> {
     Uint8List input = utf8.encode(jsonEncode(data));
     final encResult = await CryptoUtil.encryptData(input, key);
     String url =
-        'https://auth.ente.io/share?data=${_uint8ListToUrlSafeBase64(encResult.encryptedData!)}&header=${_uint8ListToUrlSafeBase64(encResult.header!)}#${_uint8ListToUrlSafeBase64(key)}';
+        'https://auth.ente.com/share?data=${_uint8ListToUrlSafeBase64(encResult.encryptedData!)}&header=${_uint8ListToUrlSafeBase64(encResult.header!)}#${_uint8ListToUrlSafeBase64(key)}';
     try {
       await shareText(url, context: context);
     } catch (e) {
@@ -135,20 +135,22 @@ class _ShareCodeDialogState extends State<ShareCodeDialog> {
     final random = Random.secure();
     final bytes = Uint8List(32); // 32 bytes = 32 * 8 bits = 256 bits
     for (int i = 0; i < bytes.length; i++) {
-      bytes[i] = random
-          .nextInt(256); // Generates a random number between 0 and 255 (1 byte)
+      bytes[i] = random.nextInt(
+        256,
+      ); // Generates a random number between 0 and 255 (1 byte)
     }
     return bytes;
   }
 }
 
 void showShareDialog(BuildContext context, Code code) {
+  if (!code.type.canShareCodes) {
+    return;
+  }
   showDialog(
     context: context,
     builder: (BuildContext context) {
-      return ShareCodeDialog(
-        code: code,
-      );
+      return ShareCodeDialog(code: code);
     },
   );
 }

@@ -11,7 +11,7 @@ import "package:photos/models/base/id.dart";
 import "package:photos/models/file/file.dart";
 import "package:photos/models/ml/face/face.dart";
 import "package:photos/models/ml/face/person.dart";
-import "package:photos/service_locator.dart" show isOfflineMode;
+import "package:photos/service_locator.dart" show isLocalGalleryMode;
 import "package:photos/services/machine_learning/face_ml/face_detection/detection.dart";
 import "package:photos/services/machine_learning/face_ml/face_filtering/face_filtering_constants.dart";
 import "package:photos/services/machine_learning/face_ml/feedback/cluster_feedback.dart";
@@ -39,6 +39,10 @@ class FileInfoFaceWidget extends StatefulWidget {
   final double? width;
   final bool highlight;
   final bool isEditMode;
+  final bool isSelected;
+  final bool isSelectionMode;
+  final VoidCallback? onSelected;
+  final VoidCallback? onLongPressSelected;
   final Future<void> Function() reloadAllFaces;
 
   const FileInfoFaceWidget(
@@ -50,6 +54,10 @@ class FileInfoFaceWidget extends StatefulWidget {
     this.highlight = false,
     this.isEditMode = false,
     this.width,
+    this.isSelected = false,
+    this.isSelectionMode = false,
+    this.onSelected,
+    this.onLongPressSelected,
     required this.reloadAllFaces,
     super.key,
   });
@@ -61,6 +69,7 @@ class FileInfoFaceWidget extends StatefulWidget {
 class _FileInfoFaceWidgetState extends State<FileInfoFaceWidget> {
   bool get hasPerson => widget.person != null;
   bool get isEditMode => widget.isEditMode;
+  bool get isSelectionMode => widget.isSelectionMode;
   double get thumbnailWidth => widget.width ?? 68;
 
   @override
@@ -71,35 +80,71 @@ class _FileInfoFaceWidgetState extends State<FileInfoFaceWidget> {
           clipBehavior: Clip.none,
           children: [
             GestureDetector(
-              onTap: isEditMode
+              onTap: isSelectionMode
+                  ? (hasPerson ? null : widget.onSelected)
+                  : isEditMode
                   ? hasPerson
-                      ? _onMinusIconTap
-                      : (isOfflineMode ? null : _onPlusIconTap)
+                        ? _onMinusIconTap
+                        : (isLocalGalleryMode ? null : _onPlusIconTap)
                   : _routeToPersonOrClusterPage,
+              onLongPress: isEditMode && !isSelectionMode && !hasPerson
+                  ? widget.onLongPressSelected
+                  : null,
               child: Container(
                 height: thumbnailWidth,
                 width: thumbnailWidth,
                 decoration: ShapeDecoration(
                   shape: faceThumbnailSquircleBorder(
                     side: thumbnailWidth,
-                    borderSide: widget.highlight
+                    borderSide: widget.highlight || widget.isSelected
                         ? BorderSide(
-                            color: getEnteColorScheme(context).primary700,
+                            color: widget.isSelected
+                                ? getEnteColorScheme(context).primary500
+                                : getEnteColorScheme(context).primary700,
                             width: 1.0,
                           )
                         : BorderSide.none,
                   ),
                 ),
                 child: FaceThumbnailSquircleClip(
-                  child: FileFaceWidget(
-                    key: ValueKey(widget.face.faceID),
-                    widget.file,
-                    faceCrop: widget.faceCrop,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      FileFaceWidget(
+                        key: ValueKey(widget.face.faceID),
+                        widget.file,
+                        faceCrop: widget.faceCrop,
+                      ),
+                      if (widget.isSelected)
+                        Container(color: Colors.black.withValues(alpha: 0.12)),
+                    ],
                   ),
                 ),
               ),
             ),
-            if (isEditMode) _buildEditIcon(context),
+            if (widget.isSelected)
+              Positioned(
+                left: -5,
+                top: -5,
+                child: Container(
+                  width: 20,
+                  height: 20,
+                  decoration: BoxDecoration(
+                    color: getEnteColorScheme(context).primary500,
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: getEnteColorScheme(context).backgroundColour,
+                      width: 2,
+                    ),
+                  ),
+                  child: Icon(
+                    Icons.check,
+                    size: 12,
+                    color: getEnteColorScheme(context).backgroundColour,
+                  ),
+                ),
+              ),
+            if (isEditMode && !isSelectionMode) _buildEditIcon(context),
           ],
         ),
         const SizedBox(height: 8),
@@ -161,31 +206,30 @@ class _FileInfoFaceWidgetState extends State<FileInfoFaceWidget> {
   }
 
   Future<void> _routeToPersonOrClusterPage() async {
-    final mlDataDB =
-        isOfflineMode ? MLDataDB.offlineInstance : MLDataDB.instance;
-    if (!isOfflineMode && widget.person != null) {
+    final mlDataDB = isLocalGalleryMode
+        ? MLDataDB.localGalleryInstance
+        : MLDataDB.instance;
+    if (!isLocalGalleryMode && widget.person != null) {
       await Navigator.of(context).push(
         MaterialPageRoute(
-          builder: (context) => PeoplePage(
-            person: widget.person!,
-            searchResult: null,
-          ),
+          builder: (context) =>
+              PeoplePage(person: widget.person!, searchResult: null),
         ),
       );
       return;
     }
-    final String? clusterID = widget.clusterID ??
-        await mlDataDB.getClusterIDForFaceID(
-          widget.face.faceID,
-        );
+    final String? clusterID =
+        widget.clusterID ??
+        await mlDataDB.getClusterIDForFaceID(widget.face.faceID);
     if (clusterID != null) {
       final fileIdsToClusterIds = await mlDataDB.getFileIdToClusterIds();
       final files = await SearchService.instance.getAllFilesForSearch();
       List<EnteFile> clusterFiles;
-      if (isOfflineMode) {
+      if (isLocalGalleryMode) {
         final localIntIds = fileIdsToClusterIds.keys.toSet();
-        final localIdMap =
-            await OfflineFilesDB.instance.getLocalIdsForIntIds(localIntIds);
+        final localIdMap = await OfflineFilesDB.instance.getLocalIdsForIntIds(
+          localIntIds,
+        );
         final localIdToFile = <String, EnteFile>{};
         for (final file in files) {
           final localId = file.localID;
@@ -219,48 +263,41 @@ class _FileInfoFaceWidgetState extends State<FileInfoFaceWidget> {
           builder: (context) => ClusterPage(
             clusterFiles,
             clusterID: clusterID,
-            showNamingBanner: !isOfflineMode,
+            showNamingBanner: !isLocalGalleryMode,
           ),
         ),
       );
       return;
     }
-    if (isOfflineMode) {
+    if (isLocalGalleryMode) {
       return;
     }
     if (widget.face.score <= kMinimumQualityFaceScore) {
       // The face score is too low for automatic clustering,
       // assigning a manual new clusterID so that the user can cluster it manually
       final String clusterID = newClusterID();
-      await mlDataDB.updateFaceIdToClusterId(
-        {widget.face.faceID: clusterID},
-      );
+      await mlDataDB.updateFaceIdToClusterId({widget.face.faceID: clusterID});
       await Navigator.of(context).push(
         MaterialPageRoute(
-          builder: (context) => ClusterPage(
-            [widget.file],
-            clusterID: clusterID,
-          ),
+          builder: (context) =>
+              ClusterPage([widget.file], clusterID: clusterID),
         ),
       );
       return;
     }
 
-    showShortToast(
-      context,
-      AppLocalizations.of(context).faceNotClusteredYet,
-    );
+    showShortToast(context, AppLocalizations.of(context).faceNotClusteredYet);
     unawaited(MLService.instance.clusterAllImages(force: true));
     return;
   }
 
   Future<void> _onPlusIconTap() async {
     try {
-      final newClusterIDValue =
-          await ClusterFeedbackService.instance.removeFaceFromCluster(
-        faceID: widget.face.faceID,
-        clusterID: widget.clusterID,
-      );
+      final newClusterIDValue = await ClusterFeedbackService.instance
+          .removeFaceFromCluster(
+            faceID: widget.face.faceID,
+            clusterID: widget.clusterID,
+          );
       await Navigator.of(context).push(
         MaterialPageRoute(
           builder: (context) => SaveOrEditPerson(
@@ -316,14 +353,14 @@ class _FileInfoFaceWidgetState extends State<FileInfoFaceWidget> {
                 : getEnteColorScheme(context).primary500,
             shape: BoxShape.circle,
             border: Border.all(
-              color: getEnteColorScheme(context).backgroundBase,
+              color: getEnteColorScheme(context).backgroundColour,
               width: 2,
             ),
           ),
           child: Icon(
             hasPerson ? Icons.remove : Icons.add,
             size: 12,
-            color: getEnteColorScheme(context).backgroundBase,
+            color: getEnteColorScheme(context).backgroundColour,
           ),
         ),
       ),

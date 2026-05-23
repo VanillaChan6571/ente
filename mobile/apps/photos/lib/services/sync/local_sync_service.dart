@@ -64,15 +64,16 @@ class LocalSyncService {
       if (_permissionGrantedSubscription != null) {
         await _permissionGrantedSubscription!.cancel();
       }
-      _permissionGrantedSubscription =
-          Bus.instance.on<PermissionGrantedEvent>().listen((event) async {
-        _registerChangeCallback();
-        if (isOfflineMode) {
-          // Offline onboarding grants permission without explicitly invoking
-          // SyncService, so trigger local import right away.
-          unawaited(checkAndSync());
-        }
-      });
+      _permissionGrantedSubscription = Bus.instance
+          .on<PermissionGrantedEvent>()
+          .listen((event) async {
+            _registerChangeCallback();
+            if (isLocalGalleryMode) {
+              // Local gallery onboarding grants permission without explicitly
+              // invoking SyncService, so trigger local import right away.
+              unawaited(checkAndSync());
+            }
+          });
     }
   }
 
@@ -82,12 +83,12 @@ class LocalSyncService {
       return;
     }
     if (Platform.isAndroid && AppLifecycleService.instance.isForeground) {
-      final permissionState =
-          await permissionService.requestPhotoMangerPermissions();
+      final permissionState = await permissionService
+          .requestPhotoMangerPermissions();
       if (permissionState != PermissionState.authorized) {
-        _logger.severe(
-          "sync requested with invalid permission",
-          permissionState.toString(),
+        _logger.warning(
+          "Skipping local sync because Android gallery permission is "
+          "$permissionState",
         );
         return;
       }
@@ -117,8 +118,9 @@ class LocalSyncService {
         );
       } else {
         // Load from 0 - 01.01.2010
-        Bus.instance
-            .fire(SyncStatusUpdate(SyncStatus.startedFirstGalleryImport));
+        Bus.instance.fire(
+          SyncStatusUpdate(SyncStatus.startedFirstGalleryImport),
+        );
         var startTime = 0;
         var toYear = 2010;
         var toTime = DateTime(toYear).microsecondsSinceEpoch;
@@ -145,8 +147,9 @@ class LocalSyncService {
         }
         await _refreshDeviceFolderCountAndCover(isFirstSync: true);
         _logger.info("first gallery import finished");
-        Bus.instance
-            .fire(SyncStatusUpdate(SyncStatus.completedFirstGalleryImport));
+        Bus.instance.fire(
+          SyncStatusUpdate(SyncStatus.completedFirstGalleryImport),
+        );
       }
       final endTime = DateTime.now().microsecondsSinceEpoch;
       final duration = Duration(microseconds: endTime - startTime);
@@ -176,15 +179,16 @@ class LocalSyncService {
 
   Future<bool> syncAll() async {
     if (!Configuration.instance.isLoggedIn()) {
-      if (!isOfflineMode) {
+      if (!isLocalGalleryMode) {
         _logger.warning("syncAll called when user is not logged in");
         return false;
       }
     }
     final stopwatch = EnteWatch("localSyncAll")..start();
 
-    final localAssets =
-        await getAllLocalAssets(needsTitle: isOfflineMode ? true : null);
+    final localAssets = await getAllLocalAssets(
+      needsTitle: isLocalGalleryMode ? true : null,
+    );
     _logger.info(
       "Loading allLocalAssets ${localAssets.length} took ${stopwatch.elapsedMilliseconds}ms ",
     );
@@ -194,8 +198,8 @@ class LocalSyncService {
     );
     final int ownerID = Configuration.instance.getUserIDV2();
     final existingLocalFileIDs = await _db.getExistingLocalFileIDs(ownerID);
-    final Map<String, Set<String>> pathToLocalIDs =
-        await _db.getDevicePathIDToLocalIDMap();
+    final Map<String, Set<String>> pathToLocalIDs = await _db
+        .getDevicePathIDToLocalIDMap();
 
     final localDiffResult = await getDiffFromExistingImport(
       localAssets,
@@ -204,13 +208,15 @@ class LocalSyncService {
     );
     bool hasAnyMappingChanged = false;
     if (localDiffResult.newPathToLocalIDs?.isNotEmpty ?? false) {
-      await _db
-          .insertPathIDToLocalIDMapping(localDiffResult.newPathToLocalIDs!);
+      await _db.insertPathIDToLocalIDMapping(
+        localDiffResult.newPathToLocalIDs!,
+      );
       hasAnyMappingChanged = true;
     }
     if (localDiffResult.deletePathToLocalIDs?.isNotEmpty ?? false) {
-      await _db
-          .deletePathIDToLocalIDMapping(localDiffResult.deletePathToLocalIDs!);
+      await _db.deletePathIDToLocalIDMapping(
+        localDiffResult.deletePathToLocalIDs!,
+      );
       hasAnyMappingChanged = true;
     }
     final bool hasUnsyncedFiles =
@@ -240,16 +246,16 @@ class LocalSyncService {
     if (flagService.syncRecoveryDiagnostics) {
       final int newMappingCount =
           localDiffResult.newPathToLocalIDs?.values.fold<int>(
-                0,
-                (sum, ids) => sum + ids.length,
-              ) ??
-              0;
+            0,
+            (sum, ids) => sum + ids.length,
+          ) ??
+          0;
       final int deletedMappingCount =
           localDiffResult.deletePathToLocalIDs?.values.fold<int>(
-                0,
-                (sum, ids) => sum + ids.length,
-              ) ??
-              0;
+            0,
+            (sum, ids) => sum + ids.length,
+          ) ??
+          0;
       if (newMappingCount > 0 || deletedMappingCount > 0 || hasUnsyncedFiles) {
         final sampleRecovered = (localDiffResult.uniqueLocalFiles ?? [])
             .take(3)
@@ -363,8 +369,10 @@ class LocalSyncService {
       _logger.info('Inserted ${files.length} out of ${allFiles.length} files');
       if (flagService.syncRecoveryDiagnostics &&
           allFiles.length != files.length) {
-        final sampleLocalIDs =
-            allFiles.take(3).map((file) => file.localID).toList();
+        final sampleLocalIDs = allFiles
+            .take(3)
+            .map((file) => file.localID)
+            .toList();
         _logger.info(
           "localSync partial materialization: "
           "from=$fromTime to=$toTime "
@@ -429,8 +437,9 @@ class LocalSyncService {
 
     if (updatedLocalIDs.isNotEmpty) {
       final int updateCount = updatedLocalIDs.length;
-      updatedLocalIDs
-          .removeWhere((x) => trackOriginFetchForUploadOrML.get(x) ?? false);
+      updatedLocalIDs.removeWhere(
+        (x) => trackOriginFetchForUploadOrML.get(x) ?? false,
+      );
       _logger.info(
         "track ${updatedLocalIDs.length}/ $updateCount files due to modification change",
       );

@@ -8,7 +8,7 @@ class PeopleMemoriesCalculator {
     bool surfaceAll = false,
     required Map<int, int> seenTimes,
     required List<PersonEntity> persons,
-    required bool isOfflineMode,
+    required bool isLocalGalleryMode,
     required bool canUseUnnamedFallback,
     String? currentUserEmail,
     required Map<int, List<FaceWithoutEmbedding>> fileIdToFaces,
@@ -23,8 +23,9 @@ class PeopleMemoriesCalculator {
     final List<PeopleMemory> memoryResults = [];
     if (allFileIdsToFile.isEmpty) return [];
     final nowInMicroseconds = currentTime.microsecondsSinceEpoch;
-    final windowEnd =
-        currentTime.add(kMemoriesUpdateFrequency).microsecondsSinceEpoch;
+    final windowEnd = currentTime
+        .add(kMemoriesUpdateFrequency)
+        .microsecondsSinceEpoch;
     w?.log('allFiles setup');
 
     final personIdToPerson = <String, PersonEntity>{};
@@ -38,12 +39,13 @@ class PeopleMemoriesCalculator {
       for (final cluster in person.data.assigned) {
         if (cluster.faces.isEmpty) continue;
         personIdToFaceIDs[personID]!.addAll(cluster.faces);
-        personIdToFileIDs[personID]!
-            .addAll(cluster.faces.map((faceID) => getFileIdFromFaceId(faceID)));
+        personIdToFileIDs[personID]!.addAll(
+          cluster.faces.map((faceID) => getFileIdFromFaceId(faceID)),
+        );
       }
     }
     final List<String> orderedImportantPersonsID = persons
-        .where((person) => !isOfflineMode && !person.data.isIgnored)
+        .where((person) => !isLocalGalleryMode && !person.data.isIgnored)
         .map((p) => p.remoteID)
         .toList();
     orderedImportantPersonsID.shuffle(Random());
@@ -70,7 +72,7 @@ class PeopleMemoriesCalculator {
     Future<List<Memory>> selectPeopleMemories(List<Memory> memories) {
       return SmartMemoriesService._bestSelectionPeople(
         memories,
-        isOfflineMode: isOfflineMode,
+        isLocalGalleryMode: isLocalGalleryMode,
         fileIDToImageEmbedding: fileIDToImageEmbedding,
         clipPositiveTextVector: clipPositiveTextVector,
       );
@@ -78,26 +80,26 @@ class PeopleMemoriesCalculator {
 
     final unnamedClusterCandidates =
         SmartMemoriesService._buildUnnamedClusterCandidates(
-      clusterIdToFaceCount: clusterIdToFaceCount,
-      clusterIdToFaceIDs: clusterIdToFaceIDs,
-      assignedClusterIDs: assignedClusterIDs,
-      allFileIdsToFile: allFileIdsToFile,
-      fileIdToFaces: fileIdToFaces,
-      meFileIDs: meFileIDs,
-      isMeAssigned: isMeAssigned,
-      seenTimes: seenTimes,
-      nowInMicroseconds: nowInMicroseconds,
-      windowEnd: windowEnd,
-      isOfflineMode: isOfflineMode,
-      selectionBuilder: selectPeopleMemories,
-    );
+          clusterIdToFaceCount: clusterIdToFaceCount,
+          clusterIdToFaceIDs: clusterIdToFaceIDs,
+          assignedClusterIDs: assignedClusterIDs,
+          allFileIdsToFile: allFileIdsToFile,
+          fileIdToFaces: fileIdToFaces,
+          meFileIDs: meFileIDs,
+          isMeAssigned: isMeAssigned,
+          seenTimes: seenTimes,
+          nowInMicroseconds: nowInMicroseconds,
+          windowEnd: windowEnd,
+          isLocalGalleryMode: isLocalGalleryMode,
+          selectionBuilder: selectPeopleMemories,
+        );
     final randomizedUnnamedClusterCandidates =
         SmartMemoriesService._orderUnnamedCandidatesByRecencyAndRandom(
-      candidates: unnamedClusterCandidates,
-      shownPeople: shownPeople,
-      currentTime: currentTime,
-      shownPersonTimeout: shownPersonTimeout,
-    );
+          candidates: unnamedClusterCandidates,
+          shownPeople: shownPeople,
+          currentTime: currentTime,
+          shownPersonTimeout: shownPersonTimeout,
+        );
     w?.log('unnamed cluster candidates setup');
 
     if (kDebugMode && SmartMemoriesService._debugForceUnnamedClustersOnly) {
@@ -111,7 +113,7 @@ class PeopleMemoriesCalculator {
     }
 
     final Map<String, Map<PeopleMemoryType, List<PeopleMemoryCandidate>>>
-        personToCandidates = {};
+    personToCandidates = {};
     for (final personID in orderedImportantPersonsID) {
       final personFileIDs = personIdToFileIDs[personID]!;
       final personName = personIdToPerson[personID]!.data.name;
@@ -131,11 +133,12 @@ class PeopleMemoriesCalculator {
         final spotlightMemories = spotlightFiles
             .map((f) => Memory.fromFile(f, seenTimes))
             .toList(growable: false);
-        final spotlightList =
-            personToCandidates.putIfAbsent(personID, () => {}).putIfAbsent(
-                  PeopleMemoryType.spotlight,
-                  () => <PeopleMemoryCandidate>[],
-                );
+        final spotlightList = personToCandidates
+            .putIfAbsent(personID, () => {})
+            .putIfAbsent(
+              PeopleMemoryType.spotlight,
+              () => <PeopleMemoryCandidate>[],
+            );
         spotlightList.add(
           PeopleMemoryCandidate(
             personID: personID,
@@ -165,11 +168,12 @@ class PeopleMemoriesCalculator {
           final youAndThemMemories = youAndThemFiles
               .map((f) => Memory.fromFile(f, seenTimes))
               .toList(growable: false);
-          final youAndThemList =
-              personToCandidates.putIfAbsent(personID, () => {}).putIfAbsent(
-                    PeopleMemoryType.youAndThem,
-                    () => <PeopleMemoryCandidate>[],
-                  );
+          final youAndThemList = personToCandidates
+              .putIfAbsent(personID, () => {})
+              .putIfAbsent(
+                PeopleMemoryType.youAndThem,
+                () => <PeopleMemoryCandidate>[],
+              );
           youAndThemList.add(
             PeopleMemoryCandidate(
               personID: personID,
@@ -201,8 +205,9 @@ class PeopleMemoriesCalculator {
           }
           final Map<int, double> similarities = {};
           for (final embedding in vectors) {
-            similarities[embedding.fileID] =
-                embedding.vector.dot(activityVector);
+            similarities[embedding.fileID] = embedding.vector.dot(
+              activityVector,
+            );
           }
           w?.log(
             'comparing embeddings for doingSomethingTogether and $activity',
@@ -221,11 +226,12 @@ class PeopleMemoriesCalculator {
             final activityMemories = activityFiles
                 .map((f) => Memory.fromFile(f, seenTimes))
                 .toList(growable: false);
-            final activityList =
-                personToCandidates.putIfAbsent(personID, () => {}).putIfAbsent(
-                      PeopleMemoryType.doingSomethingTogether,
-                      () => <PeopleMemoryCandidate>[],
-                    );
+            final activityList = personToCandidates
+                .putIfAbsent(personID, () => {})
+                .putIfAbsent(
+                  PeopleMemoryType.doingSomethingTogether,
+                  () => <PeopleMemoryCandidate>[],
+                );
             activityList.add(
               PeopleMemoryCandidate(
                 personID: personID,
@@ -251,15 +257,17 @@ class PeopleMemoriesCalculator {
         final file = allFileIdsToFile[fileID];
         if (file != null && file.creationTime != null) {
           final creationTime = file.creationTime!;
-          final creationDateTime =
-              DateTime.fromMicrosecondsSinceEpoch(creationTime);
+          final creationDateTime = DateTime.fromMicrosecondsSinceEpoch(
+            creationTime,
+          );
           if (currentTime.difference(creationDateTime).inDays < 365) {
             longAgo = false;
             break;
           }
           if (creationTime > lastCreationTime - microSecondsInDay) {
-            final lastDateTime =
-                DateTime.fromMicrosecondsSinceEpoch(lastCreationTime);
+            final lastDateTime = DateTime.fromMicrosecondsSinceEpoch(
+              lastCreationTime,
+            );
             if (creationDateTime.difference(lastDateTime).inHours > 24) {
               lastTimeYouSawThemFiles.clear();
             }
@@ -279,20 +287,19 @@ class PeopleMemoriesCalculator {
         );
         final filteredLastTimeMemories =
             SmartMemoriesService._filterNearDuplicates(
-          lastTimeMemories,
-          fileIDToImageEmbedding,
-          minKeep: 2,
-          isOfflineMode: isOfflineMode,
-        );
+              lastTimeMemories,
+              fileIDToImageEmbedding,
+              minKeep: 2,
+              isLocalGalleryMode: isLocalGalleryMode,
+            );
         final spacedLastTimeMemories =
-            SmartMemoriesService._filterByTimeSpacing(
-          filteredLastTimeMemories,
-        );
-        final lastTimeList =
-            personToCandidates.putIfAbsent(personID, () => {}).putIfAbsent(
-                  PeopleMemoryType.lastTimeYouSawThem,
-                  () => <PeopleMemoryCandidate>[],
-                );
+            SmartMemoriesService._filterByTimeSpacing(filteredLastTimeMemories);
+        final lastTimeList = personToCandidates
+            .putIfAbsent(personID, () => {})
+            .putIfAbsent(
+              PeopleMemoryType.lastTimeYouSawThem,
+              () => <PeopleMemoryCandidate>[],
+            );
         lastTimeList.add(
           PeopleMemoryCandidate(
             personID: personID,
@@ -352,8 +359,11 @@ class PeopleMemoriesCalculator {
 
       final birthdate = DateTime.tryParse(person.data.birthDate ?? "");
       if (birthdate != null) {
-        final thisBirthday =
-            DateTime(currentTime.year, birthdate.month, birthdate.day);
+        final thisBirthday = DateTime(
+          currentTime.year,
+          birthdate.month,
+          birthdate.day,
+        );
         final daysTillBirthday = thisBirthday.difference(currentTime).inDays;
         if (daysTillBirthday < 6 && daysTillBirthday >= 0) {
           final int newAge = currentTime.year - birthdate.year;
@@ -379,8 +389,9 @@ class PeopleMemoriesCalculator {
                   isBirthday: true,
                   newAge: newAge,
                   firstDateToShow: thisBirthday.microsecondsSinceEpoch,
-                  lastDateToShow:
-                      thisBirthday.add(kDayItself).microsecondsSinceEpoch,
+                  lastDateToShow: thisBirthday
+                      .add(kDayItself)
+                      .microsecondsSinceEpoch,
                 ),
               );
             }
@@ -405,8 +416,9 @@ class PeopleMemoriesCalculator {
                   isBirthday: true,
                   newAge: newAge,
                   firstDateToShow: thisBirthday.microsecondsSinceEpoch,
-                  lastDateToShow:
-                      thisBirthday.add(kDayItself).microsecondsSinceEpoch,
+                  lastDateToShow: thisBirthday
+                      .add(kDayItself)
+                      .microsecondsSinceEpoch,
                 ),
               );
             }
@@ -416,8 +428,9 @@ class PeopleMemoriesCalculator {
     }
     w?.log('relevancy setup');
 
-    final shownPersonAndTypeTimeout =
-        Duration(days: shownPersonTimeout.inDays * 2);
+    final shownPersonAndTypeTimeout = Duration(
+      days: shownPersonTimeout.inDays * 2,
+    );
     bool addedFromRotation = false;
     peopleRotationLoop:
     for (final personID in orderedImportantPersonsID) {
@@ -428,8 +441,9 @@ class PeopleMemoriesCalculator {
       }
       for (final shownLog in shownPeople) {
         if (shownLog.personID != personID) continue;
-        final shownDate =
-            DateTime.fromMicrosecondsSinceEpoch(shownLog.lastTimeShown);
+        final shownDate = DateTime.fromMicrosecondsSinceEpoch(
+          shownLog.lastTimeShown,
+        );
         final bool seenPersonRecently =
             currentTime.difference(shownDate) < shownPersonTimeout;
         if (seenPersonRecently) continue peopleRotationLoop;
@@ -459,8 +473,9 @@ class PeopleMemoriesCalculator {
           if (shownLog.peopleMemoryType != potentialCandidate.type) {
             continue;
           }
-          final shownTypeDate =
-              DateTime.fromMicrosecondsSinceEpoch(shownLog.lastTimeShown);
+          final shownTypeDate = DateTime.fromMicrosecondsSinceEpoch(
+            shownLog.lastTimeShown,
+          );
           final bool seenPersonTypeRecently =
               currentTime.difference(shownTypeDate) < shownPersonAndTypeTimeout;
           if (manyMemoryTypes && seenPersonTypeRecently) {
@@ -502,11 +517,11 @@ class PeopleMemoriesCalculator {
       }
       final orderedEligibleUnnamedCandidates =
           SmartMemoriesService._orderUnnamedCandidatesByRecencyAndRandom(
-        candidates: eligibleUnnamedCandidates,
-        shownPeople: shownPeople,
-        currentTime: currentTime,
-        shownPersonTimeout: shownPersonTimeout,
-      );
+            candidates: eligibleUnnamedCandidates,
+            shownPeople: shownPeople,
+            currentTime: currentTime,
+            shownPersonTimeout: shownPersonTimeout,
+          );
       for (final candidate in orderedEligibleUnnamedCandidates) {
         final potentialMemory = await candidate.realize();
         if (potentialMemory == null) {

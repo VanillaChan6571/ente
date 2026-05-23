@@ -13,11 +13,7 @@ import "package:photos/main.dart";
 import "package:photos/utils/local_settings.dart";
 import "package:thermal/thermal.dart";
 
-enum ComputeRunState {
-  idle,
-  runningML,
-  generatingStream,
-}
+enum ComputeRunState { idle, runningML, generatingStream }
 
 class ComputeController {
   final _logger = Logger("ComputeController");
@@ -64,6 +60,7 @@ class ComputeController {
   void _setDeviceHealth(bool healthy) {
     if (_isDeviceHealthy == healthy) return;
     _isDeviceHealthy = healthy;
+    _logger.info("Device health changed, healthy: $healthy");
     Bus.instance.fire(DeviceHealthChangedEvent(healthy));
   }
 
@@ -83,7 +80,7 @@ class ComputeController {
       // Initialize interaction tracking before any await to avoid first-tap races.
       _startInteractionTimer(kDefaultInteractionTimeout);
 
-      await setMLDebugInteractionOverride(
+      await setMLInteractionOverride(
         turnOn: _localSettings.runMLDuringInteractionOverride,
         persist: false,
       );
@@ -107,9 +104,9 @@ class ComputeController {
       } else {
         // Update Battery state for iOS
         _oniOSBatteryStateUpdate(await BatteryInfoPlugin().iosBatteryInfo);
-        BatteryInfoPlugin()
-            .iosBatteryInfoStream
-            .listen((IosBatteryInfo? batteryInfo) {
+        BatteryInfoPlugin().iosBatteryInfoStream.listen((
+          IosBatteryInfo? batteryInfo,
+        ) {
           _oniOSBatteryStateUpdate(batteryInfo);
         });
       }
@@ -118,9 +115,9 @@ class ComputeController {
       _onAndroidBatteryStateUpdate(
         await BatteryInfoPlugin().androidBatteryInfo,
       );
-      BatteryInfoPlugin()
-          .androidBatteryInfoStream
-          .listen((AndroidBatteryInfo? batteryInfo) {
+      BatteryInfoPlugin().androidBatteryInfoStream.listen((
+        AndroidBatteryInfo? batteryInfo,
+      ) {
         _onAndroidBatteryStateUpdate(batteryInfo);
       });
     }
@@ -244,7 +241,7 @@ class ComputeController {
     _fireControlEvent();
   }
 
-  Future<void> setMLDebugInteractionOverride({
+  Future<void> setMLInteractionOverride({
     required bool turnOn,
     bool persist = true,
   }) async {
@@ -299,21 +296,22 @@ class ComputeController {
 
   void _onAndroidBatteryStateUpdate(AndroidBatteryInfo? batteryInfo) {
     _androidLastBatteryInfo = batteryInfo;
-    _logger.info("Battery info: ${batteryInfo!.toJson()}");
     _setDeviceHealth(_computeIsAndroidDeviceHealthy());
     _fireControlEvent();
   }
 
   void _oniOSBatteryStateUpdate(IosBatteryInfo? batteryInfo) {
     _iosLastBatteryInfo = batteryInfo;
-    _logger.info("Battery info: ${batteryInfo!.toJson()}");
     _setDeviceHealth(_computeIsiOSDeviceHealthy());
     _fireControlEvent();
   }
 
   void _onThermalStateUpdate(ThermalStatus? thermalStatus) {
+    final changed = _lastThermalStatus != thermalStatus;
     _lastThermalStatus = thermalStatus;
-    _logger.info("Thermal status: $thermalStatus");
+    if (changed) {
+      _logger.info("Thermal status changed, status: $thermalStatus");
+    }
     _setDeviceHealth(
       Platform.isAndroid
           ? _computeIsAndroidDeviceHealthy()

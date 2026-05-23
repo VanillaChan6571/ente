@@ -48,6 +48,14 @@ Learn more: [Collaboration guide](/photos/features/sharing-and-collaboration/col
 
 For a complete overview, see [Sharing documentation](/photos/features/sharing-and-collaboration/share).
 
+### Can I use "Send link" to share photos with another Ente user? {#send-link-vs-ente-sharing}
+
+You can, but it isn't the intended way. **Send link** (also called a quick link) creates a public link that anyone with the URL can open; it doesn't matter whether the recipient has an Ente account.
+
+For Ente-to-Ente sharing, create an album and share it directly with the other user's Ente email instead. They get end-to-end encrypted access in their own app, can comment and like, and you can grant Viewer, Collaborator, or Admin permissions. See [How do I share an album with other Ente users?](#share-with-users).
+
+Use **Send link** when you want to share with someone who doesn't use Ente or when you don't need permissions and album-level controls.
+
 ### What's the difference between public links and quick links? {#link-types}
 
 Quick links ARE public links - just with a different creation method:
@@ -70,12 +78,12 @@ Learn more: [Public links guide](/photos/features/sharing-and-collaboration/publ
 
 ### Can I use my own domain for public links? {#custom-domains}
 
-Yes! Ente's custom domains feature lets you serve your public album links using your own personalized domain instead of `albums.ente.io`.
+Yes! Ente's custom domains feature lets you serve your public album links using your own personalized domain instead of `albums.ente.com`.
 
 For example, instead of:
 
 ```
-https://albums.ente.io/?t=...
+https://albums.ente.com/?t=...
 ```
 
 You can use:
@@ -92,7 +100,7 @@ https://pics.example.org/?t=...
 **Setup:**
 
 1. Link your domain in `Settings > Preferences > Custom domains` (currently web only)
-2. Add a CNAME DNS record pointing your domain to `my.ente.io`
+2. Add a CNAME DNS record pointing your domain to `my.ente.com`
 3. Wait for DNS changes to propagate (usually a few minutes)
 
 Once configured, Ente automatically uses your custom domain when creating new public links. Ente still hosts and serves your albums - only the URL changes.
@@ -101,7 +109,7 @@ Learn more in the [Custom domains guide](/photos/features/sharing-and-collaborat
 
 ### Do Trip albums work with custom domains? {#trip-custom-domains}
 
-Trip albums (albums with the Trip layout feature) are not currently supported on custom domains. When someone tries to access a Trip album through your custom domain, they will be automatically redirected to the default `albums.ente.io` domain.
+Trip albums (albums with the Trip layout feature) are not currently supported on custom domains. When someone tries to access a Trip album through your custom domain, they will be automatically redirected to the default `albums.ente.com` domain.
 
 Regular albums continue to work perfectly on your custom domain - only the Trip layout feature has this limitation.
 
@@ -341,8 +349,7 @@ Notifications work more reliably on Android, but can still be affected by:
 2. Disable battery optimization for Ente in system settings
 3. Don't force-close the app from recents
 
-**Alternative:**
-If you need real-time updates, keep the app open or check the shared album manually by opening it in the app.
+**Alternative:** If you need real-time updates, keep the app open or check the shared album manually by opening it in the app.
 
 - No platform restrictions for link recipients
 
@@ -389,6 +396,14 @@ When someone adds a photo via a collect link:
 - The storage counts against your plan's total storage limit
 
 Make sure you have sufficient storage available if you're expecting many people to add photos.
+
+### Can I let others view a shared album without allowing download of the photos? {#disable-downloads-public-link}
+
+Yes. When creating or managing a public link, you can turn off downloads.
+
+Open the album, create or manage the public link, and disable **Allow downloads**.
+
+This lets people view the album through the link without showing them a download option.
 
 ### Can I set limits on public links? {#link-limits}
 
@@ -487,6 +502,12 @@ We understand this uses extra storage in some use cases (like family photo shari
 ### Why don't photos added via a shared link appear in my feed? {#shared-link-photos-not-in-feed}
 
 Only photos added by Ente users who joined the album directly will appear in your feed. Photos added through a public link by someone without an Ente account are not shown in the feed.
+
+### Why do photos shared by others appear in my main gallery? {#shared-photos-in-gallery}
+
+By default, shared items can appear in your home gallery.
+
+To hide them, open `Settings > Appearance > Gallery` and enable **Hide shared items from home gallery**.
 
 ### Can I remove myself from a shared album? {#leave-shared-album}
 
@@ -592,11 +613,11 @@ Open the album in Ente (web or mobile app), create a public link, open link sett
 
 **Manual method:**
 
-Create a public link for your album, then add an iframe to your HTML with the URL, replacing `albums.ente.io` with `embed.ente.io`:
+Create a public link for your album, then add an iframe to your HTML with the URL, replacing `albums.ente.com` with `embed.ente.com`:
 
 ```html
 <iframe
-    src="https://embed.ente.io/?t=...#..."
+    src="https://embed.ente.com/?t=...#..."
     width="800"
     height="600"
     frameborder="0"
@@ -609,14 +630,14 @@ For complete details, see the [Embed albums guide](/photos/features/sharing-and-
 
 ### Do embedded albums work with custom domains? {#embed-custom-domains}
 
-Yes, but you need to use `embed.ente.io` instead of your custom domain in the iframe src.
+Yes, but you need to use `embed.ente.com` instead of your custom domain in the iframe src.
 
-If you're using the easy method (copy embed HTML button), the app automatically handles this for you - it will use `embed.ente.io` regardless of your custom domain setting.
+If you're using the easy method (copy embed HTML button), the app automatically handles this for you - it will use `embed.ente.com` regardless of your custom domain setting.
 
 If you're creating the embed code manually and have a custom domain configured:
 
-- Replace your custom domain with `embed.ente.io` in the iframe src
-- For example: `https://embed.ente.io/?t=...` (not `https://pics.example.org/?t=...`)
+- Replace your custom domain with `embed.ente.com` in the iframe src
+- For example: `https://embed.ente.com/?t=...` (not `https://pics.example.org/?t=...`)
 
 The embed will still work perfectly - it's just served from the embed subdomain instead of your custom domain.
 

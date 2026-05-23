@@ -6,6 +6,7 @@ import 'package:ente_accounts/services/user_service.dart';
 import 'package:ente_crypto_api/ente_crypto_api.dart';
 import 'package:ente_crypto_dart_adapter/ente_crypto_dart_adapter.dart';
 import "package:ente_legacy/services/emergency_service.dart";
+import "package:ente_legacy/services/legacy_kit_service.dart";
 import 'package:ente_lock_screen/lock_screen_settings.dart';
 import 'package:ente_lock_screen/ui/app_lock.dart';
 import 'package:ente_lock_screen/ui/lock_screen.dart';
@@ -85,19 +86,10 @@ Future<void> _initSystemTray() async {
   await trayManager.setIcon(path);
   final Menu menu = Menu(
     items: [
-      MenuItem(
-        key: 'hide_window',
-        label: 'Hide Window',
-      ),
-      MenuItem(
-        key: 'show_window',
-        label: 'Show Window',
-      ),
+      MenuItem(key: 'hide_window', label: 'Hide Window'),
+      MenuItem(key: 'show_window', label: 'Show Window'),
       MenuItem.separator(),
-      MenuItem(
-        key: 'exit_app',
-        label: 'Exit App',
-      ),
+      MenuItem(key: 'exit_app', label: 'Exit App'),
     ],
   );
   await trayManager.setContextMenu(menu);
@@ -189,9 +181,7 @@ Future<void> _init(bool bool, {String? via}) async {
 
     await LockerDB.instance.init();
 
-    await Configuration.instance.init([
-      LockerDB.instance,
-    ]);
+    await Configuration.instance.init([LockerDB.instance]);
 
     await Network.instance.init(Configuration.instance);
     await UserService.instance.init(
@@ -222,6 +212,10 @@ Future<void> _init(bool bool, {String? via}) async {
     await LockerContactsDisplayService.init(
       preferences: preferences,
       packageInfo: packageInfo,
+    );
+    await LegacyKitService.instance.init(
+      config: Configuration.instance,
+      sessionProvider: LockerContactsDisplayService.buildSession,
     );
   } catch (e) {
     _logger.severe("Error during initialization", e);

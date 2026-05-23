@@ -7,6 +7,7 @@ import 'package:ente_auth/l10n/l10n.dart';
 import 'package:ente_auth/models/code.dart';
 import 'package:ente_auth/services/authenticator_service.dart';
 import 'package:ente_auth/store/code_store.dart';
+import 'package:ente_auth/ui/settings/data/import/import_file_cleanup.dart';
 import 'package:ente_auth/ui/settings/data/import/import_success.dart';
 import 'package:ente_auth/utils/dialog_util.dart';
 import 'package:file_picker/file_picker.dart';
@@ -24,12 +25,8 @@ class PlainTextImport extends StatelessWidget {
 
     return Column(
       children: [
-        Text(
-          l10n.importInstruction,
-        ),
-        const SizedBox(
-          height: 20,
-        ),
+        Text(l10n.importInstruction),
+        const SizedBox(height: 20),
         Container(
           color: Theme.of(context).colorScheme.gNavBackgroundColor,
           child: Padding(
@@ -44,9 +41,7 @@ class PlainTextImport extends StatelessWidget {
             ),
           ),
         ),
-        const SizedBox(
-          height: 20,
-        ),
+        const SizedBox(height: 20),
         Text(l10n.importCodeDelimiterInfo),
       ],
     );
@@ -61,17 +56,10 @@ Future<void> showImportInstructionDialog(BuildContext context) async {
       l10n.importCodes,
       style: Theme.of(context).textTheme.titleLarge,
     ),
-    content: const SingleChildScrollView(
-      child: PlainTextImport(),
-    ),
+    content: const SingleChildScrollView(child: PlainTextImport()),
     actions: [
       TextButton(
-        child: Text(
-          l10n.cancel,
-          style: const TextStyle(
-            color: Colors.red,
-          ),
-        ),
+        child: Text(l10n.cancel, style: const TextStyle(color: Colors.red)),
         onPressed: () {
           Navigator.of(context, rootNavigator: true).pop('dialog');
         },
@@ -105,8 +93,7 @@ Future<void> _pickImportFile(BuildContext context) async {
   await progressDialog.show();
   try {
     final parsedCodes = [];
-    File file = File(result.files.single.path!);
-    final codes = await file.readAsString();
+    final codes = await readPickedImportFileAsString(result.files.single.path!);
 
     if (codes.startsWith('otpauth://')) {
       List<String> splitCodes = codes.split(",");
@@ -144,7 +131,7 @@ Future<void> _pickImportFile(BuildContext context) async {
     await showErrorDialog(
       context,
       context.l10n.sorry,
-      context.l10n.importFailureDescNew,
+      context.l10n.importFailureDesc,
     );
   }
 }

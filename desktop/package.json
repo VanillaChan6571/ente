@@ -1,6 +1,6 @@
 {
     "name": "ente",
-    "version": "1.7.23-beta",
+    "version": "1.7.24-beta",
     "private": true,
     "description": "Desktop client for Ente Photos",
     "repository": "github:ente-io/photos-desktop",
@@ -18,7 +18,7 @@
         "dev-renderer": "cross-env-shell _ENTE_IS_DESKTOP=1 \"cd ../web && yarn install --frozen-lockfile && yarn workspace photos next dev -p 3008\"",
         "postinstall": "electron-builder install-app-deps",
         "lint": "yarn prettier --check --log-level warn . && yarn eslint && yarn tsc",
-        "lint-fix": "yarn prettier --write --log-level warn . && yarn eslint && yarn tsc",
+        "lint:fix": "yarn prettier --write --log-level warn . && yarn eslint && yarn tsc",
         "prepare": "node scripts/vips.js"
     },
     "dependencies": {

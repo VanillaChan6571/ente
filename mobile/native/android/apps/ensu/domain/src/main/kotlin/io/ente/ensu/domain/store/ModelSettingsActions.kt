@@ -102,7 +102,7 @@ internal class ModelSettingsActions(
                 if (!isFailure) {
                     startDownloadProgressMonitor(target)
                 }
-            } else if (!llmProvider.isManualDownloadActive) {
+            } else if (!llmProvider.isManualDownloadActive && modelDownloadJob?.isActive != true) {
                 persistModelDownloadRequested(false)
                 state.update { appState ->
                     appState.copy(
@@ -248,6 +248,28 @@ internal class ModelSettingsActions(
             } finally {
                 modelDownloadJob = null
                 refreshModelDownloadInfo()
+            }
+        }
+    }
+
+    fun prewarmImageInferenceIfDownloaded() {
+        val scope = scope ?: return
+        val currentState = state.value
+        if (currentState.chat.isGenerating || currentState.chat.isDownloading) return
+
+        val target = resolveTarget(currentState.modelSettings)
+        if (!llmProvider.isModelDownloaded(target)) return
+
+        scope.launch {
+            try {
+                llmProvider.prewarmImageInference(target)
+            } catch (err: Throwable) {
+                logRepository.log(
+                    LogLevel.Warning,
+                    "Image inference prewarm skipped",
+                    details = err.message,
+                    tag = "Model"
+                )
             }
         }
     }
